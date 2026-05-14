@@ -1,0 +1,7 @@
+node_modules/
+dist/
+windows/node_modules/
+windows/dist/
+bin/
+*.dmg
+chat.json
