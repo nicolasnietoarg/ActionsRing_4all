@@ -1,6 +1,7 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, nativeTheme, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 const koffi = require('koffi');
 
 // --- Win32 API via koffi (sin PowerShell, sin execSync) ---
@@ -59,6 +60,50 @@ function restoreFocus() {
   } catch {
     try { SetForegroundWindow(lastActiveHwnd); } catch {}
   }
+}
+
+// --- Focus a window by app name (for Rol actions) ---
+function focusAppWindow(appName) {
+  let targetHwnd = null;
+  const cb = koffi.register((hwnd, _lParam) => {
+    if (targetHwnd) return 1;
+    if (!IsWindowVisible(hwnd)) return 1;
+    const textLen = GetWindowTextLengthW(hwnd);
+    if (textLen === 0) return 1;
+    const pidBuf = [0];
+    GetWindowThreadProcessId(hwnd, pidBuf);
+    const pid = pidBuf[0];
+    if (!pid) return 1;
+    const hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+    if (!hProcess) return 1;
+    const nameBuf = Buffer.alloc(520);
+    const len = GetModuleBaseNameW(hProcess, null, nameBuf, 260);
+    CloseHandle(hProcess);
+    if (len > 0) {
+      const name = nameBuf.toString('utf16le', 0, len * 2).replace(/\.exe$/i, '');
+      if (name.toLowerCase() === appName.toLowerCase()) targetHwnd = hwnd;
+    }
+    return 1;
+  }, koffi.pointer('void'));
+  try { EnumWindows(cb, 0); } catch {}
+  koffi.unregister(cb);
+  if (targetHwnd) {
+    try {
+      const pidBuf = [0];
+      GetWindowThreadProcessId(targetHwnd, pidBuf);
+      const targetThread = pidBuf[0];
+      const ourThread = GetCurrentThreadId();
+      if (targetThread && targetThread !== ourThread) {
+        AttachThreadInput(ourThread, targetThread, true);
+        SetForegroundWindow(targetHwnd);
+        SetFocus(targetHwnd);
+        AttachThreadInput(ourThread, targetThread, false);
+      } else {
+        SetForegroundWindow(targetHwnd);
+      }
+    } catch { try { SetForegroundWindow(targetHwnd); } catch {} }
+  }
+  return !!targetHwnd;
 }
 let settingsWin = null;
 let tray = null;
@@ -382,13 +427,24 @@ ipcMain.on('execute-action', (_, action) => {
   }
   overlay.hide();
 
-  // Restaurar foco a la ventana anterior
-  restoreFocus();
-
-  if (action.type === 'shortcut') {
-    setTimeout(() => sendKeys(action.value), 200);
+  // If action comes from a Rol profile, focus that app first
+  if (action._fromProfile) {
+    const focused = focusAppWindow(action._fromProfile);
+    if (!focused) {
+      // App not open, try to launch it
+      exec(`start "" "${action._fromProfile}"`, { shell: 'cmd.exe' });
+    }
+    setTimeout(() => {
+      if (action.type === 'shortcut') sendKeys(action.value);
+      else executeAction(action);
+    }, 400);
   } else {
-    setTimeout(() => executeAction(action), 200);
+    restoreFocus();
+    if (action.type === 'shortcut') {
+      setTimeout(() => sendKeys(action.value), 200);
+    } else {
+      setTimeout(() => executeAction(action), 200);
+    }
   }
 });
 
