@@ -1,40 +1,39 @@
 # Actions Ring - Windows Portable
 
-Menú radial flotante que se ejecuta desde la línea de comandos sin necesidad de instalar nada en el sistema.
+Floating radial action menu that runs from the command line. No installation required.
 
-## Requisitos
+## Requirements
 
-- **Node.js 18+** — [descargar](https://nodejs.org) (versión LTS)
-- Eso es todo. No requiere permisos de administrador.
+- **Node.js 18+** — [download](https://nodejs.org) (LTS version)
+- No admin permissions needed.
 
-## Ejecución rápida
+## Quick Start
 
 ```
 run.bat
 ```
 
-O manualmente:
+Or manually:
 
 ```
 npm install
 npm run dev
 ```
 
-## Uso
+## Usage
 
-- **Ctrl+Shift+Space** — abre el ring
-- **Click en un globo** — ejecuta la acción
-- **Escape** — cierra el ring
-- **Click derecho en tray** → Settings — configurar acciones
-- **Click derecho en tray** → Quit — cerrar
+- **Ctrl+Alt+Space** — open the ring
+- **Click a bubble** — execute the action
+- **Escape** — close the ring
+- **Right-click tray** → Settings — configure actions
+- **Right-click tray** → Quit — exit
 
-## Configuración
+## Features
 
-Editar `config/default.json` o usar la UI de Settings.
+### Context-Aware Profiles
 
-### Perfiles
+The ring detects the active app and shows relevant actions. Profiles are matched by Windows process name:
 
-Los perfiles se detectan por nombre de proceso de Windows:
 - `chrome` — Google Chrome
 - `msedge` — Microsoft Edge
 - `Code` — VS Code
@@ -43,51 +42,77 @@ Los perfiles se detectan por nombre de proceso de Windows:
 - `notepad` — Notepad
 - `Spotify` — Spotify
 
-Para ver el nombre de proceso de una app, abrir Task Manager → Details → columna "Name".
+To find an app's process name: Task Manager → Details → "Name" column.
 
-### Tipos de acción
+### Pinned Actions
 
-| Tipo | Descripción | Ejemplo |
+Actions that always appear regardless of active app. Configure in Settings by selecting from existing actions.
+
+### Macro Recorder
+
+Record keystroke sequences and replay them from the ring:
+
+1. Settings → Macros → 🔴 Record
+2. Type your sequence (shortcuts + text)
+3. Stop → Name it → Save
+4. Access from the purple "Macro" bubble in the ring
+
+Smart recording merges consecutive characters (e.g. typing `REDACTED` becomes a single `type:REDACTED` step).
+
+### Configurable Animations
+
+Ring open/close animations with options:
+- **Types**: deck (cards from center), pop (bounce), fade, none
+- **Speed**: 0.3x to 3x
+- **Stagger**: 10ms to 150ms between bubbles
+- **Toggle**: enable/disable all animations
+
+### Action Types
+
+| Type | Description | Example |
 |------|-------------|---------|
-| shortcut | Envía teclas | `Control+Shift+P` |
-| open | Abre programa | `notepad` |
-| command | Ejecuta cmd | `start https://google.com` |
-| snippet | Pega texto | `Hola {clipboard}` |
-| workflow | Cadena de acciones | `[{"type":"open","value":"chrome"}]` |
+| `shortcut` | Send keystrokes | `Control+Shift+P` |
+| `open` | Launch a program | `notepad` |
+| `command` | Run shell command | `start https://google.com` |
+| `snippet` | Paste text | `Hello {clipboard}` |
+| `macro` | Keystroke sequence | `[{"keys":"Control+A","delay":50}]` |
+| `workflow` | Chain actions | `[{"type":"open","value":"chrome"}]` |
 
-### Variables en commands/snippets
+### Dynamic Variables (in commands/snippets/macros)
 
-- `{clipboard}` — contenido del portapapeles
-- `{date}` — fecha actual
-- `{time}` — hora actual
-- `{app}` — app activa
+- `{clipboard}` — current clipboard content
+- `{date}` — current date
+- `{time}` — current time
+- `{app}` — active app when ring was opened
 
-### Window management
+### Window Management
 
-Usar tipo `command` con:
-- `window:left` — ventana a la izquierda
-- `window:right` — ventana a la derecha
-- `window:maximize` — maximizar
+Use type `command` with:
+- `window:left` — snap window left
+- `window:right` — snap window right
+- `window:maximize` — maximize window
 
-## Estructura
+## Structure
 
 ```
 windows/
-├── run.bat              ← Doble click para ejecutar
+├── run.bat              ← Double-click to run
 ├── package.json
-├── config/default.json  ← Configuración
+├── config/default.json  ← Configuration
 ├── src/
-│   ├── main/main.js     ← Proceso principal (PowerShell SendKeys)
-│   ├── main/preload.js
-│   ├── renderer/        ← UI del ring
-│   └── settings/        ← UI de configuración
-└── dist/                ← Se genera al compilar
+│   ├── main/main.js     ← Main process (Win32 API via koffi)
+│   ├── main/preload.js  ← Context bridge
+│   ├── renderer/        ← Ring UI
+│   └── settings/        ← Settings UI
+├── dist/                ← Generated on build
+└── CHANGES.md           ← Changelog
 ```
 
-## Notas
+## Technical Notes
 
-- No requiere permisos de administrador
-- No instala nada en el sistema (todo queda en esta carpeta)
-- Se puede copiar a un USB y ejecutar en cualquier PC con Node.js
-- Los shortcuts se envían via PowerShell + .NET SendKeys
-- Si un shortcut no funciona, puede ser que la app destino no acepte SendKeys (algunas apps de seguridad lo bloquean)
+- Portable: nothing installed on the system, can run from USB
+- No admin permissions required
+- Keystrokes sent via Win32 `SendInput` (native, reliable)
+- Active app detection via `GetForegroundWindow` + `GetModuleBaseNameW` (~0ms)
+- No PowerShell dependency — all native via `koffi` FFI
+- Dependency: `koffi` (prebuilt binaries, no build tools needed)

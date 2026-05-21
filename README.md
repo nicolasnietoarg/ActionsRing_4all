@@ -1,121 +1,146 @@
 # Actions Ring
 
-Menú radial flotante para macOS que muestra acciones contextuales según la app activa. Se activa con un hotkey global y permite ejecutar shortcuts, abrir apps, correr comandos, pegar snippets y encadenar workflows.
+Floating radial action menu for macOS & Windows. Context-aware shortcuts, app profiles, macro recorder, snippets, workflows, clipboard history, and cross-app controls via a customizable bubble ring overlay. Activate with a hotkey, execute actions instantly.
+
+![Actions Ring](ring.png)
+
+## Platforms
+
+| Platform | Folder | Hotkey | Status |
+|----------|--------|--------|--------|
+| macOS (Apple Silicon) | `/` (root) | `Cmd+Shift+Space` | v0.1.0 |
+| Windows (Portable) | `/windows` | `Ctrl+Alt+Space` | v0.4.0 |
+
+## Download
+
+**Windows:** [Download portable .exe from Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/latest)
+
+**macOS:** Download `.dmg` from [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/tag/v0.1.0)
+
+## Run from Source
+
+### Requirements
+- Node.js 18+ ([download](https://nodejs.org))
+
+### Windows
+```bash
+cd windows
+npm install
+npm run dev
+```
+Or double-click `windows/run.bat`.
+
+### macOS
+```bash
+npm install
+npm run dev
+```
+
+## Features
+
+### Core
+- **Context-aware profiles** — detects active app, shows relevant actions
+- **Rol system** — access other app profiles without switching context
+- **Clipboard history** — last 20 items, click to paste
+- **Window management** — snap left/right/maximize
+- **Settings UI** — drag & drop reorder, key recorder, dark/light theme
+
+### Macros (Windows v0.4.0+)
+- **Macro recorder** — record keystrokes in real-time with actual delays
+- **Smart text detection** — consecutive characters merged into `type:` steps
+- **Macro bubble** — dedicated ring bubble with expandable fan of saved macros
+- **AltGr support** — special characters (`@`, `#`, etc.) captured correctly
+
+### Pinned Actions (Windows v0.4.0+)
+- Actions that persist across all app profiles
+- Select from existing actions in Settings
+- Visual indicator (cyan border + blue dot)
+
+### Configurable Animations (Windows v0.4.0+)
+- **Entrance/Exit types:** deck (cards from center), pop (bounce), fade, none
+- **Speed:** 0.3x to 3x multiplier
+- **Stagger:** 10ms to 150ms between bubbles
+- **Toggle:** enable/disable all animations
+
+### Action Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `shortcut` | Send keystrokes | `Control+Shift+P` / `Command+Shift+P` |
+| `open` | Launch app | `Google Chrome` / `notepad` |
+| `command` | Shell command | `start https://google.com` |
+| `snippet` | Paste text | `Hello {clipboard}` |
+| `macro` | Keystroke sequence | `[{"keys":"Control+A","delay":50}]` |
+| `workflow` | Chain actions | `[{"type":"open","value":"chrome"}]` |
+| `profile` | Navigate to profile | `Spotify` |
+
+### Dynamic Variables
+- `{clipboard}` — current clipboard content
+- `{date}` — current date
+- `{time}` — current time
+- `{datetime}` — ISO timestamp
+- `{app}` — active app when ring was opened
 
 ## Stack
 
-- **Electron 31** — ventana transparente overlay + tray icon
-- **React 18** — renderer del ring y settings
-- **esbuild** — bundler (build en <100ms)
-- **Lucide React** — iconos SVG minimalistas (tree-shaked)
-- **osascript** — envío de keystrokes via System Events
-- **electron-builder** — empaquetado como .app/.dmg
+| Component | macOS | Windows |
+|-----------|-------|---------|
+| Runtime | Electron 31 | Electron 31 |
+| UI | React 18 | React 18 |
+| Bundler | esbuild | esbuild |
+| Icons | Lucide React | Lucide React |
+| Keystrokes | osascript (System Events) | Win32 SendInput (koffi FFI) |
+| App detection | NSWorkspace | GetForegroundWindow + GetModuleBaseNameW |
+| Packaging | electron-builder (.dmg) | electron-builder (portable .exe) |
 
-## Estructura
+## Structure
 
 ```
-actions-ring/
-├── config/default.json      # Configuración: hotkey, perfiles, acciones, rolProfiles
-├── src/
-│   ├── main/
-│   │   ├── main.js          # Main process: overlay, tray, IPC, executeAction
-│   │   └── preload.js       # Context bridge: ring + settings APIs
+ActionsRing_4all/
+├── config/default.json          # macOS config
+├── src/                         # macOS source
+│   ├── main/main.js
 │   ├── renderer/
-│   │   ├── index.html       # Ring UI styles (navy bubbles, cyan icons, floating labels)
-│   │   └── index.jsx        # Ring component con Rol system
-│   ├── settings/
-│   │   ├── index.html       # Settings styles (macOS native, dark mode support)
-│   │   └── index.jsx        # Settings UI: perfiles, acciones, clipboard history
-│   └── native/
-│       └── sendkeys.swift   # (No usado actualmente) CGEvent key sender
-├── bin/sendkeys             # Binario compilado de sendkeys.swift (no usado)
-├── dist/
-│   ├── renderer.js          # Bundle del ring (~308KB)
-│   └── settings.js          # Bundle de settings (~315KB)
-├── ring.png                 # Icono de la app
-├── tray-icon.png            # Icono del tray (44px)
-└── package.json             # Scripts + electron-builder config
+│   └── settings/
+├── windows/                     # Windows source (independent)
+│   ├── config/default.json
+│   ├── src/main/main.js         # Win32 API via koffi
+│   ├── src/renderer/
+│   ├── src/settings/
+│   ├── CHANGES.md
+│   └── README.md
+├── BACKPORT_TO_MACOS.md         # Guide to port Windows features to macOS
+└── .github/workflows/           # CI: builds portable .exe on tag push
 ```
 
-## Scripts
+## Building Portable .exe
+
+The portable exe is built automatically by GitHub Actions when you push a tag:
 
 ```bash
-npm run dev      # Build + ejecutar en desarrollo
-npm run build    # Solo build de renderer + settings
-npm run pack     # Build + empaquetar como .app (en dist/mac/)
-npm run dist     # Build + generar .dmg instalable
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
-## Cómo funciona
+The `.exe` appears in [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases) within minutes.
 
-### Ring (overlay)
-1. Hotkey (`Cmd+Shift+Space`) → detecta app activa → muestra ring centrado en cursor
-2. Bubbles en círculo con acciones del perfil activo
-3. Bubble "Rol" → click abre perfiles configurados → click en perfil muestra sus acciones
-4. Click en acción → oculta ring → activa app destino → ejecuta acción
-5. Escape o hotkey de nuevo → cierra
+To build locally (requires admin on Windows):
+```bash
+cd windows
+npm run dist
+```
 
-### Tipos de acción
-| Tipo | Descripción | Ejemplo de value |
-|------|-------------|-----------------|
-| `shortcut` | Envía keystroke via osascript | `Command+Shift+P` |
-| `open` | Abre una app | `Google Chrome` |
-| `command` | Ejecuta shell command | `screencapture -ic` |
-| `snippet` | Copia texto y pega | `Saludos,\n{clipboard}` |
-| `workflow` | Encadena acciones (JSON array) | `[{"type":"open","value":"Chrome"}]` |
-| `profile` | Navega a otro perfil en el ring | `Spotify` |
+## macOS Permissions
 
-### Variables dinámicas (en command y snippet)
-- `{clipboard}` — contenido actual del clipboard
-- `{date}` — fecha actual
-- `{time}` — hora actual
-- `{datetime}` — ISO timestamp
-- `{app}` — app activa cuando se abrió el ring
-
-### Window management
-Usar tipo `command` con valores especiales:
-- `window:left` — ventana a mitad izquierda
-- `window:right` — ventana a mitad derecha
-- `window:maximize` — maximizar
-
-### Rol system
-`config.rolProfiles` es un array de nombres de perfiles que aparecen como sub-menú en el bubble "Rol". Permite acceder a acciones de otras apps sin cambiar de contexto.
-
-## Settings UI
-- **Sidebar**: perfiles + herramientas (clipboard history)
-- **Acciones**: tabla con drag & drop para reordenar
-- **Edición**: click en acción → panel de edición con key recorder para shortcuts
-- **Agregar perfil**: dropdown con apps abiertas actualmente
-- **Tema**: auto dark/light según sistema
-
-## Permisos requeridos (macOS)
 **System Settings → Privacy & Security → Accessibility:**
-- Agregar `Electron.app` desde `node_modules/electron/dist/`
-- (En producción, agregar `Actions Ring.app`)
+- Add `Electron.app` (dev) or `Actions Ring.app` (production)
 
-Sin este permiso, los shortcuts tipo `shortcut` no funcionan. Los tipos `command` y `open` sí funcionan sin permisos.
+Required for `shortcut` type actions. `command` and `open` work without permissions.
 
-## Problemas conocidos
+## Contributing
 
-### Repaint en ventanas transparentes
-Electron con `transparent: true` tiene un bug donde el compositor de Chromium no repinta áreas transparentes al quitar elementos del DOM. Esto afecta al sistema de Rol: los sub-bubbles no desaparecen visualmente aunque React los quite del DOM.
+See `BACKPORT_TO_MACOS.md` for porting Windows v0.4.0 features to macOS.
 
-**Workaround actual**: se usa `display: none` via inline style en vez de conditional rendering. Funciona parcialmente.
+## License
 
-**Solución definitiva**: cambiar a ventana no-transparente con fondo semi-opaco, o usar `will-change: transform` en los elementos.
-
-### Timing de keystrokes
-Después de ocultar el overlay, se espera 200ms antes de enviar el keystroke para que la app destino recupere el foco. Si un shortcut no funciona, puede necesitar más delay.
-
-### Bundle size
-Con tree-shaking de Lucide: ~308KB. Sin tree-shaking: ~1.4MB. Si se agregan nuevos iconos al config, hay que importarlos explícitamente en `renderer/index.jsx` y `settings/index.jsx`.
-
-## Próximos pasos posibles
-- [ ] Fix definitivo del repaint para Rol (probar `will-change` o ventana no-transparente)
-- [ ] Animación de cierre de bubbles
-- [ ] Auto-update (electron-updater)
-- [ ] Quick notes (input flotante)
-- [ ] Hotkey por perfil
-- [ ] Búsqueda de iconos en Settings (picker de Lucide)
-- [ ] Export/import de configuración
-- [ ] Sync de config via iCloud
+MIT
