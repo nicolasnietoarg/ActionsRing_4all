@@ -43,9 +43,18 @@ let lastActiveApp = null;
 let lastActiveHwnd = null;
 let clipboardHistory = [];
 
-const configPath = path.join(__dirname, '../../config/default.json');
+const configPath = app.isPackaged
+  ? path.join(process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath), 'config', 'default.json')
+  : path.join(__dirname, '../../config/default.json');
 
 function loadConfig() {
+  // In portable mode, copy default config next to .exe if not present
+  if (app.isPackaged && !fs.existsSync(configPath)) {
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const bundledConfig = path.join(process.resourcesPath, 'config', 'default.json');
+    if (fs.existsSync(bundledConfig)) fs.copyFileSync(bundledConfig, configPath);
+  }
   config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   return config;
 }
