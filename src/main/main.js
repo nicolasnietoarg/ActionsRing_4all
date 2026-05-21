@@ -154,6 +154,34 @@ ipcMain.on('execute-action', (_, action) => {
 ipcMain.on('close-ring', () => overlay.hide());
 ipcMain.on('renderer-log', (_, msg) => console.log('[renderer]', msg));
 
+// --- Macro execution (macOS via osascript) ---
+function executeMacro(steps) {
+  let delay = 0;
+  for (const step of steps) {
+    const d = step.delay || 50;
+    setTimeout(() => {
+      const keys = step.keys || '';
+      if (keys.startsWith('type:')) {
+        const text = expandVariables(keys.slice(5)).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        const proc = spawn('osascript', ['-']);
+        proc.stdin.write(`tell application "System Events" to keystroke "${text}"`);
+        proc.stdin.end();
+      } else {
+        executeAction({ type: 'shortcut', value: keys });
+      }
+    }, delay);
+    delay += d;
+  }
+}
+
+ipcMain.on('execute-macro', (_, macro) => {
+  overlay.hide();
+  if (lastActiveApp) {
+    try { execSync(`osascript -e 'tell application "${lastActiveApp}" to activate'`); } catch {}
+  }
+  setTimeout(() => executeMacro(macro.steps), 200);
+});
+
 // --- IPC: Settings ---
 ipcMain.handle('get-config', () => config);
 ipcMain.handle('save-config', (_, newConfig) => {
@@ -169,6 +197,39 @@ ipcMain.handle('get-running-apps', () => {
 });
 ipcMain.handle('get-clipboard-history', () => clipboardHistory);
 ipcMain.handle('get-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+
+// --- IPC: Macros ---
+let recording = false;
+
+ipcMain.handle('start-recording', () => {
+  recording = true;
+  globalShortcut.unregisterAll();
+  console.log('[macro] Recording started, hotkeys unregistered');
+  return true;
+});
+
+ipcMain.handle('stop-recording', () => {
+  recording = false;
+  globalShortcut.register(config.hotkey, toggleOverlay);
+  globalShortcut.register('Escape', () => { if (overlay && overlay.isVisible()) overlay.hide(); });
+  console.log('[macro] Recording stopped, hotkeys re-registered');
+  return [];
+});
+
+ipcMain.handle('save-macro', (_, macro) => {
+  if (!config.macros) config.macros = [];
+  config.macros.push(macro);
+  saveConfig(config);
+  return config.macros;
+});
+
+ipcMain.handle('delete-macro', (_, index) => {
+  if (config.macros) config.macros.splice(index, 1);
+  saveConfig(config);
+  return config.macros;
+});
+
+ipcMain.handle('get-macros', () => config.macros || []);
 
 // --- IPC: Window management ---
 ipcMain.on('window-manage', (_, position) => {
@@ -235,6 +296,13 @@ function executeAction(action) {
         let delay = 0;
         steps.forEach(step => { setTimeout(() => executeAction(step), delay); delay += 300; });
       } catch {}
+      break;
+    }
+    case 'macro': {
+      try {
+        const steps = typeof action.value === 'string' ? JSON.parse(action.value) : action.value;
+        executeMacro(steps);
+      } catch (e) { console.error('macro error:', e.message); }
       break;
     }
   }
