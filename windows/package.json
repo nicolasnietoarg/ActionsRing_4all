@@ -1,6 +1,6 @@
 {
   "name": "actions-ring-windows",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "Actions Ring - Portable radial menu for Windows",
   "main": "src/main/main.js",
   "scripts": {
@@ -8,15 +8,42 @@
     "build:renderer": "esbuild src/renderer/index.jsx --bundle --outfile=dist/renderer.js --loader:.jsx=jsx --define:process.env.NODE_ENV=\\\"production\\\"",
     "build:settings": "esbuild src/settings/index.jsx --bundle --outfile=dist/settings.js --loader:.jsx=jsx --define:process.env.NODE_ENV=\\\"production\\\"",
     "build": "npm run build:renderer && npm run build:settings",
-    "dev": "npm run build && electron ."
+    "dev": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win portable",
+    "dist:nsis": "npm run build && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.actionsring.windows",
+    "productName": "Actions Ring",
+    "win": {
+      "icon": "ring.png",
+      "target": [
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "portable": {
+      "artifactName": "ActionsRing-Portable-${version}.exe"
+    },
+    "files": [
+      "src/**/*",
+      "dist/**/*",
+      "config/**/*",
+      "tray-icon.png",
+      "node_modules/koffi/**/*"
+    ],
+    "extraResources": [
+      { "from": "config", "to": "config" }
+    ]
   },
   "dependencies": {
+    "koffi": "2.9.0",
     "lucide-react": "0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "electron": "31.3.1",
+    "electron-builder": "24.13.3",
     "esbuild": "0.21.5"
   }
 }
