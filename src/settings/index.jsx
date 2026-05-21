@@ -11,28 +11,48 @@ function Icon({ name, size = 18 }) {
 }
 function KeyRecorder({ value, onChange }) {
   const [recording, setRecording] = useState(false);
+  const modsRef = useRef(new Set());
 
   useEffect(() => {
     if (!recording) return;
-    const handler = (e) => {
+    modsRef.current = new Set();
+
+    const downHandler = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
-      const parts = [];
-      if (e.metaKey) parts.push('Command');
-      if (e.ctrlKey) parts.push('Control');
-      if (e.altKey) parts.push('Option');
-      if (e.shiftKey) parts.push('Shift');
-      let key = e.key;
-      if (key === ' ') key = 'Space';
-      else if (key.length === 1) key = key.toUpperCase();
-      else if (key === 'Backspace') key = 'Delete';
-      parts.push(key);
-      onChange(parts.join('+'));
-      setRecording(false);
+      // Track modifier keys pressed
+      if (e.key === 'Meta' || e.key === 'OS') modsRef.current.add('Win');
+      else if (e.key === 'Control') modsRef.current.add('Control');
+      else if (e.key === 'Shift') modsRef.current.add('Shift');
+      else if (e.key === 'Alt') modsRef.current.add('Alt');
+      else {
+        // Non-modifier key pressed — finalize
+        const parts = [];
+        if (modsRef.current.has('Control')) parts.push('Control');
+        if (modsRef.current.has('Alt')) parts.push('Alt');
+        if (modsRef.current.has('Shift')) parts.push('Shift');
+        if (modsRef.current.has('Win')) parts.push('Win');
+        let key = e.key;
+        if (key === ' ') key = 'Space';
+        else if (key.length === 1) key = key.toUpperCase();
+        else if (key === 'Backspace') key = 'Delete';
+        parts.push(key);
+        onChange(parts.join('+'));
+        setRecording(false);
+      }
     };
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
+
+    // If user releases all keys without pressing a non-modifier, cancel
+    const upHandler = (e) => {
+      if (e.key === 'Escape') { setRecording(false); }
+    };
+
+    window.addEventListener('keydown', downHandler, true);
+    window.addEventListener('keyup', upHandler, true);
+    return () => {
+      window.removeEventListener('keydown', downHandler, true);
+      window.removeEventListener('keyup', upHandler, true);
+    };
   }, [recording]);
 
   return (
@@ -61,6 +81,282 @@ function ClipboardPanel() {
         </div>
       </div>
     </>
+  );
+}
+
+function MacroEditor({ value, onChange }) {
+  const steps = Array.isArray(value) ? value : (() => { try { return JSON.parse(value); } catch { return []; } })();
+  const update = (newSteps) => onChange(newSteps);
+  const updateStep = (i, field, val) => { const s = [...steps]; s[i] = { ...s[i], [field]: val }; update(s); };
+  const addStep = () => update([...steps, { keys: '', delay: 50 }]);
+  const removeStep = (i) => update(steps.filter((_, j) => j !== i));
+
+  return (
+    <div className="macro-editor">
+      <div className="section-label">Pasos de la macro</div>
+      {steps.map((step, i) => (
+        <div key={i} className="macro-step">
+          <span className="macro-step-num">{i + 1}</span>
+          <input className="macro-input" value={step.keys} onChange={(e) => updateStep(i, 'keys', e.target.value)} placeholder="Control+C o type:texto" />
+          <input className="macro-delay" type="number" value={step.delay || 0} onChange={(e) => updateStep(i, 'delay', parseInt(e.target.value) || 0)} title="Delay (ms)" />
+          <span className="macro-delay-label">ms</span>
+          <button className="macro-remove" onClick={() => removeStep(i)}>×</button>
+        </div>
+      ))}
+      <button className="btn btn-small" onClick={addStep}>＋ Paso</button>
+      <div className="macro-hint">Usar <code>type:texto</code> para escribir texto, o shortcuts como <code>Control+A</code></div>
+    </div>
+  );
+}
+
+function MacrosSection({ config, save }) {
+  const macros = config.macros || [];
+  const [recording, setRecording] = useState(false);
+  const [recordedSteps, setRecordedSteps] = useState([]);
+  const [liveKeys, setLiveKeys] = useState([]);
+  const [newName, setNewName] = useState('');
+  const lastKeyTime = useRef(Date.now());
+  const liveRef = useRef(null);
+
+  const startRecording = async () => {
+    setRecordedSteps([]);
+    setLiveKeys([]);
+    setRecording(true);
+    lastKeyTime.current = Date.now();
+    await window.settings.startRecording();
+  };
+
+  const stopRecording = async () => {
+    setRecording(false);
+    await window.settings.stopRecording();
+  };
+
+  // Auto-scroll del log en vivo
+  useEffect(() => {
+    if (liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight;
+  }, [liveKeys]);
+
+  // Captura de teclas en vivo (keydown + keyup, incluyendo modificadores)
+  useEffect(() => {
+    if (!recording) return;
+
+    const addLive = (key, event) => {
+      setLiveKeys(prev => [...prev, { key, event, time: Date.now() }]);
+    };
+
+    const downHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const keyName = e.key === ' ' ? 'Space' : e.key;
+      addLive(keyName, '↓ down');
+
+      // No grabar pasos para modificadores solos
+      if (['Shift', 'Control', 'Alt', 'Meta', 'OS'].includes(e.key)) return;
+
+      const now = Date.now();
+      const delay = Math.min(now - lastKeyTime.current, 2000);
+      lastKeyTime.current = now;
+
+      const isAltGr = e.ctrlKey && e.altKey;
+      const isPrintable = e.key.length === 1 && e.key !== ' ';
+      const hasCtrlOrAlt = e.ctrlKey || e.altKey || e.metaKey;
+
+      if (isPrintable && (!hasCtrlOrAlt || isAltGr)) {
+        setRecordedSteps(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.keys.startsWith('type:') && delay < 300) {
+            return [...prev.slice(0, -1), { keys: last.keys + e.key, delay: last.delay }];
+          }
+          return [...prev, { keys: `type:${e.key}`, delay: prev.length === 0 ? 0 : delay }];
+        });
+        return;
+      }
+
+      const parts = [];
+      if (e.ctrlKey) parts.push('Control');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+      if (e.metaKey) parts.push('Win');
+      let key = e.key;
+      if (key === ' ') key = 'Space';
+      else if (key.length === 1) key = key.toUpperCase();
+      parts.push(key);
+
+      setRecordedSteps(prev => [...prev, { keys: parts.join('+'), delay: prev.length === 0 ? 0 : delay }]);
+    };
+
+    const upHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const keyName = e.key === ' ' ? 'Space' : e.key;
+      addLive(keyName, '↑ up');
+      if (e.key === 'Escape') stopRecording();
+    };
+
+    window.addEventListener('keydown', downHandler, true);
+    window.addEventListener('keyup', upHandler, true);
+    return () => {
+      window.removeEventListener('keydown', downHandler, true);
+      window.removeEventListener('keyup', upHandler, true);
+    };
+  }, [recording]);
+
+  const saveMacro = () => {
+    if (!newName || recordedSteps.length === 0) return;
+    const macro = { label: newName, icon: 'Play', steps: recordedSteps };
+    save({ ...config, macros: [...macros, macro] });
+    setRecordedSteps([]);
+    setLiveKeys([]);
+    setNewName('');
+  };
+
+  const deleteMacro = (i) => {
+    save({ ...config, macros: macros.filter((_, j) => j !== i) });
+  };
+
+  return (
+    <div className="section">
+      <div className="section-label">🎹 Macros (secuencias de teclas grabadas)</div>
+      <div className="actions-table">
+        {macros.map((macro, i) => (
+          <div key={i} className="action-row" style={{flexWrap: 'wrap', cursor: 'pointer'}} onClick={(e) => { if (e.target.tagName !== 'BUTTON') { const el = e.currentTarget.querySelector('.macro-steps-detail'); if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none'; }}}>
+            <span className="row-icon"><Icon name={macro.icon || 'Play'} /></span>
+            <span className="row-label">{macro.label}</span>
+            <span className="row-type">{macro.steps.length} pasos</span>
+            <button className="macro-remove" onClick={() => deleteMacro(i)}>×</button>
+            <div className="macro-steps-detail" style={{display: 'none', width: '100%', flexWrap: 'wrap', gap: 4, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+              {macro.steps.map((s, j) => <span key={j} className="step-tag" style={{fontSize: 11, padding: '2px 6px', background: 'rgba(100,200,255,0.15)', borderRadius: 4}}>{s.keys} <small style={{opacity:0.5}}>{s.delay}ms</small></span>)}
+            </div>
+          </div>
+        ))}
+        {!macros.length && <div className="action-row"><span className="row-label" style={{opacity:0.5}}>No hay macros grabadas</span></div>}
+      </div>
+
+      <div className="macro-recorder">
+        {!recording && recordedSteps.length === 0 && (
+          <button className="btn btn-record" onClick={startRecording}>🔴 Grabar macro</button>
+        )}
+        {recording && (
+          <div className="recording-active">
+            <span className="recording-dot">●</span> Grabando... ({recordedSteps.length} pasos) — <small>ESC para parar</small>
+            <button className="btn btn-stop" onClick={stopRecording}>⏹ Parar</button>
+            <div className="live-keys" ref={liveRef} style={{maxHeight: 150, overflowY: 'auto', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', borderRadius: 6, fontFamily: 'SF Mono, Consolas, monospace', fontSize: 11, lineHeight: '18px'}}>
+              {liveKeys.map((lk, i) => (
+                <div key={i} style={{color: lk.event.includes('down') ? '#6ef' : '#f96'}}>
+                  <span style={{opacity: 0.5, marginRight: 6}}>{lk.event}</span>
+                  <strong>{lk.key}</strong>
+                </div>
+              ))}
+              {liveKeys.length === 0 && <span style={{opacity: 0.4}}>Presioná teclas...</span>}
+            </div>
+          </div>
+        )}
+        {!recording && recordedSteps.length > 0 && (
+          <div className="recording-save">
+            <div className="recorded-preview">
+              {recordedSteps.map((s, i) => <span key={i} className="step-tag">{s.keys} <small>{s.delay}ms</small></span>)}
+            </div>
+            <div className="save-row">
+              <input className="input-field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nombre de la macro" />
+              <button className="btn btn-primary" onClick={saveMacro}>Guardar</button>
+              <button className="btn" onClick={() => { setRecordedSteps([]); setLiveKeys([]); }}>Descartar</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AnimationSection({ config, save }) {
+  const anim = config.animation || { enabled: true, entrance: 'deck', exit: 'deck', speed: 1.0, stagger: 50 };
+  const update = (field, val) => save({ ...config, animation: { ...anim, [field]: val } });
+
+  return (
+    <div className="section">
+      <div className="section-label">🎬 Animaciones</div>
+      <div className="form-grid">
+        <div className="form-field">
+          <label>Activar</label>
+          <select value={anim.enabled ? 'on' : 'off'} onChange={(e) => update('enabled', e.target.value === 'on')}>
+            <option value="on">Activadas</option>
+            <option value="off">Desactivadas</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Entrada</label>
+          <select value={anim.entrance} onChange={(e) => update('entrance', e.target.value)} disabled={!anim.enabled}>
+            <option value="deck">Baraja (deck)</option>
+            <option value="pop">Pop (bounce)</option>
+            <option value="fade">Fade</option>
+            <option value="none">Sin animación</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Salida</label>
+          <select value={anim.exit} onChange={(e) => update('exit', e.target.value)} disabled={!anim.enabled}>
+            <option value="deck">Baraja (deck)</option>
+            <option value="pop">Pop</option>
+            <option value="fade">Fade</option>
+            <option value="none">Sin animación</option>
+          </select>
+        </div>
+        <div className="form-field">
+          <label>Velocidad ({anim.speed}x)</label>
+          <input type="range" min="0.3" max="3" step="0.1" value={anim.speed} onChange={(e) => update('speed', parseFloat(e.target.value))} disabled={!anim.enabled} />
+        </div>
+        <div className="form-field">
+          <label>Stagger ({anim.stagger}ms)</label>
+          <input type="range" min="10" max="150" step="5" value={anim.stagger} onChange={(e) => update('stagger', parseInt(e.target.value))} disabled={!anim.enabled} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PinnedSection({ config, save }) {
+  const pinned = config.pinnedActions || [];
+  const pinnedKeys = new Set(pinned.map(a => `${a.label}|${a.type}|${JSON.stringify(a.value)}`));
+
+  // Collect all unique actions from all profiles
+  const allActions = [];
+  const seen = new Set();
+  for (const [profile, actions] of Object.entries(config.actions || {})) {
+    for (const action of actions) {
+      const key = `${action.label}|${action.type}|${JSON.stringify(action.value)}`;
+      if (!seen.has(key)) { seen.add(key); allActions.push({ ...action, _profile: profile, _key: key }); }
+    }
+  }
+
+  const togglePin = (action) => {
+    const key = action._key;
+    if (pinnedKeys.has(key)) {
+      save({ ...config, pinnedActions: pinned.filter(a => `${a.label}|${a.type}|${JSON.stringify(a.value)}` !== key) });
+    } else {
+      const { _profile, _key, ...clean } = action;
+      save({ ...config, pinnedActions: [...pinned, clean] });
+    }
+  };
+
+  return (
+    <div className="section">
+      <div className="section-label">📌 Acciones Pinned (siempre visibles — seleccioná de las existentes)</div>
+      <div className="actions-table pinned-picker">
+        {allActions.map((action, i) => {
+          const isPinned = pinnedKeys.has(action._key);
+          return (
+            <div key={i} className={`action-row ${isPinned ? 'pinned-active' : ''}`} onClick={() => togglePin(action)}>
+              <span className={`pin-check ${isPinned ? 'checked' : ''}`}>{isPinned ? '📌' : '○'}</span>
+              <span className="row-icon"><Icon name={action.icon} /></span>
+              <span className="row-label">{action.label}</span>
+              <span className="row-type">{action.type}</span>
+              <span className="row-profile-tag">{action._profile === '_default' ? 'Default' : action._profile}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -146,16 +442,25 @@ function Settings() {
         <div className="sidebar-item" onClick={() => { setSelectedProfile('__clipboard'); setEditing(null); }}>
           <span className="icon">📋</span> Clipboard
         </div>
+        <div className="sidebar-item" onClick={() => { setSelectedProfile('__macros'); setEditing(null); }}>
+          <span className="icon">🎹</span> Macros
+        </div>
       </div>
 
       <div className="main">
-        {selectedProfile === '__clipboard' ? <ClipboardPanel /> : <>
+        {selectedProfile === '__clipboard' ? <ClipboardPanel /> : selectedProfile === '__macros' ? <MacrosSection config={config} save={save} /> : <>
         <h2>{selectedProfile === '_default' ? 'Default' : selectedProfile}</h2>
 
         <div className="section">
           <div className="section-label">Hotkey global</div>
           <input className="input-field" value={config.hotkey} onChange={(e) => save({ ...config, hotkey: e.target.value })} />
         </div>
+
+        <PinnedSection config={config} save={save} />
+
+        <AnimationSection config={config} save={save} />
+
+        <MacrosSection config={config} save={save} />
 
         <div className="section">
           <div className="section-label">Perfiles en Rol (hover para acceso rápido)</div>
@@ -239,6 +544,7 @@ function Settings() {
                   <option value="open">Abrir App</option>
                   <option value="command">Comando</option>
                   <option value="snippet">Snippet</option>
+                  <option value="macro">Macro</option>
                   <option value="workflow">Workflow</option>
                   <option value="profile">Ir a Perfil</option>
                 </select>
@@ -247,13 +553,15 @@ function Settings() {
                 <label>Valor</label>
                 {current.type === 'shortcut' ? (
                   <KeyRecorder value={current.value} onChange={(v) => updateAction(editing, 'value', v)} />
+                ) : current.type === 'macro' ? (
+                  <MacroEditor value={current.value} onChange={(v) => updateAction(editing, 'value', v)} />
                 ) : current.type === 'profile' ? (
                   <select value={current.value} onChange={(e) => updateAction(editing, 'value', e.target.value)}>
                     <option value="">Elegir perfil...</option>
                     {profiles.filter(p => p !== selectedProfile).map(p => <option key={p} value={p}>{p === '_default' ? 'Default' : p}</option>)}
                   </select>
                 ) : (
-                  <input value={current.value} onChange={(e) => updateAction(editing, 'value', e.target.value)} placeholder={current.type === 'open' ? 'Nombre de la app' : 'comando shell'} />
+                  <input value={typeof current.value === 'string' ? current.value : JSON.stringify(current.value)} onChange={(e) => updateAction(editing, 'value', e.target.value)} placeholder={current.type === 'open' ? 'Nombre de la app' : 'comando shell'} />
                 )}
               </div>
             </div>

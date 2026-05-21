@@ -1,136 +1,491 @@
 {
-  "hotkey": "CommandOrControl+Shift+Space",
-  "rolProfiles": ["Spotify", "Google Chrome", "ChatGPT"],
+  "hotkey": "Control+Shift+Alt+Space",
+  "animation": {
+    "enabled": true,
+    "entrance": "pop",
+    "exit": "fade",
+    "speed": 1,
+    "stagger": 50
+  },
+  "macros": [
+    {
+      "label": "Select All + Copy",
+      "icon": "Clipboard",
+      "steps": [
+        {
+          "keys": "Control+A",
+          "delay": 80
+        },
+        {
+          "keys": "Control+C",
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "label": "LAN",
+      "icon": "Play",
+      "steps": [
+        {
+          "keys": "type:REDACTED",
+          "delay": 0
+        },
+        {
+          "keys": "type:REDACTED",
+          "delay": 312
+        },
+        {
+          "keys": "AltGraph",
+          "delay": 266
+        },
+        {
+          "keys": "type:REDACTED",
+          "delay": 297
+        },
+        {
+          "keys": "type:REDACTED",
+          "delay": 498
+        },
+        {
+          "keys": "type:REDACTED",
+          "delay": 312
+        }
+      ]
+    },
+    {
+      "label": "USER",
+      "icon": "Play",
+      "steps": [
+        {
+          "keys": "type:REDACTED",
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "label": "SQL FAST",
+      "icon": "Play",
+      "steps": [
+        {
+          "keys": "Control+Alt+Space",
+          "delay": 0
+        }
+      ]
+    }
+  ],
+  "rolProfiles": [
+    "Spotify",
+    "chrome",
+    "msedge"
+  ],
   "actions": {
     "_default": [
-      { "label": "Copy", "icon": "Copy", "type": "shortcut", "value": "Command+C" },
-      { "label": "Paste", "icon": "ClipboardPaste", "type": "shortcut", "value": "Command+V" },
-      { "label": "Undo", "icon": "Undo2", "type": "shortcut", "value": "Command+Z" },
-      { "label": "Save", "icon": "Save", "type": "shortcut", "value": "Command+S" },
-      { "label": "Screenshot", "icon": "Camera", "type": "command", "value": "screencapture -ic" },
-      { "label": "Lock", "icon": "Lock", "type": "command", "value": "pmset displaysleepnow" },
-      { "label": "Google", "icon": "Search", "type": "command", "value": "open \"https://www.google.com/search?q=$(pbpaste | sed 's/ /+/g')\"" },
-      { "label": "Win Left", "icon": "ArrowLeft", "type": "command", "value": "window:left" }
+      {
+        "label": "Copy",
+        "icon": "Copy",
+        "type": "shortcut",
+        "value": "Control+C"
+      },
+      {
+        "label": "Paste",
+        "icon": "ClipboardPaste",
+        "type": "shortcut",
+        "value": "Control+V"
+      },
+      {
+        "label": "Undo",
+        "icon": "Undo2",
+        "type": "shortcut",
+        "value": "Control+Z"
+      },
+      {
+        "label": "Save",
+        "icon": "Save",
+        "type": "shortcut",
+        "value": "Control+S"
+      },
+      {
+        "label": "Screenshot",
+        "icon": "Camera",
+        "type": "shortcut",
+        "value": "Control+Win+A"
+      },
+      {
+        "label": "Lock",
+        "icon": "Lock",
+        "type": "shortcut",
+        "value": "Win+L"
+      },
+      {
+        "label": "Google",
+        "icon": "Search",
+        "type": "command",
+        "value": "start https://www.google.com/search?q={clipboard}"
+      },
+      {
+        "label": "Win Left",
+        "icon": "ArrowLeft",
+        "type": "command",
+        "value": "window:left"
+      }
     ],
     "Code": [
-      { "label": "Terminal", "icon": "Terminal", "type": "shortcut", "value": "Control+Shift+`" },
-      { "label": "Palette", "icon": "Palette", "type": "shortcut", "value": "Command+Shift+P" },
-      { "label": "Find", "icon": "Search", "type": "shortcut", "value": "Command+Shift+F" },
-      { "label": "Save", "icon": "Save", "type": "shortcut", "value": "Command+S" },
-      { "label": "Git", "icon": "GitBranch", "type": "shortcut", "value": "Control+Shift+G" },
-      { "label": "Explorer", "icon": "FolderOpen", "type": "shortcut", "value": "Command+Shift+E" },
-      { "label": "Split", "icon": "Columns2", "type": "shortcut", "value": "Command+\\" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" }
+      {
+        "label": "Terminal",
+        "icon": "Terminal",
+        "type": "shortcut",
+        "value": "Control+`"
+      },
+      {
+        "label": "Palette",
+        "icon": "Palette",
+        "type": "shortcut",
+        "value": "Control+Shift+P"
+      },
+      {
+        "label": "Find",
+        "icon": "Search",
+        "type": "shortcut",
+        "value": "Control+Shift+F"
+      },
+      {
+        "label": "Save",
+        "icon": "Save",
+        "type": "shortcut",
+        "value": "Control+S"
+      },
+      {
+        "label": "Git",
+        "icon": "GitBranch",
+        "type": "shortcut",
+        "value": "Control+Shift+G"
+      },
+      {
+        "label": "Explorer",
+        "icon": "FolderOpen",
+        "type": "shortcut",
+        "value": "Control+Shift+E"
+      },
+      {
+        "label": "Split",
+        "icon": "Columns2",
+        "type": "shortcut",
+        "value": "Control+\\"
+      },
+      {
+        "label": "Close",
+        "icon": "X",
+        "type": "shortcut",
+        "value": "Control+W"
+      }
     ],
-    "Safari": [
-      { "label": "New Tab", "icon": "Plus", "type": "shortcut", "value": "Command+T" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" },
-      { "label": "Reload", "icon": "RefreshCw", "type": "shortcut", "value": "Command+R" },
-      { "label": "URL", "icon": "Link", "type": "command", "value": "osascript -e 'tell application \"Safari\" to get URL of current tab of front window' | pbcopy" },
-      { "label": "Private", "icon": "EyeOff", "type": "shortcut", "value": "Command+Shift+N" },
-      { "label": "Find", "icon": "Search", "type": "shortcut", "value": "Command+F" },
-      { "label": "Back", "icon": "ArrowLeft", "type": "shortcut", "value": "Command+[" },
-      { "label": "Forward", "icon": "ArrowRight", "type": "shortcut", "value": "Command+]" }
+    "chrome": [
+      {
+        "label": "New Tab",
+        "icon": "Plus",
+        "type": "shortcut",
+        "value": "Control+T"
+      },
+      {
+        "label": "Close",
+        "icon": "X",
+        "type": "shortcut",
+        "value": "Control+W"
+      },
+      {
+        "label": "Reload",
+        "icon": "RefreshCw",
+        "type": "shortcut",
+        "value": "Control+R"
+      },
+      {
+        "label": "URL",
+        "icon": "Link",
+        "type": "shortcut",
+        "value": "Control+L"
+      },
+      {
+        "label": "Incognito",
+        "icon": "EyeOff",
+        "type": "shortcut",
+        "value": "Control+Shift+N"
+      },
+      {
+        "label": "DevTools",
+        "icon": "Code",
+        "type": "shortcut",
+        "value": "Control+Shift+I"
+      },
+      {
+        "label": "Back",
+        "icon": "ArrowLeft",
+        "type": "shortcut",
+        "value": "Alt+ArrowLeft"
+      },
+      {
+        "label": "Bookmarks",
+        "icon": "Star",
+        "type": "shortcut",
+        "value": "Control+Shift+B"
+      }
     ],
-    "Google Chrome": [
-      { "label": "New Tab", "icon": "Plus", "type": "shortcut", "value": "Command+T" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" },
-      { "label": "Reload", "icon": "RefreshCw", "type": "shortcut", "value": "Command+R" },
-      { "label": "URL", "icon": "Link", "type": "shortcut", "value": "Command+L" },
-      { "label": "Incognito", "icon": "EyeOff", "type": "shortcut", "value": "Command+Shift+N" },
-      { "label": "DevTools", "icon": "Code", "type": "shortcut", "value": "Command+Option+I" },
-      { "label": "Back", "icon": "ArrowLeft", "type": "shortcut", "value": "Command+[" },
-      { "label": "Bookmarks", "icon": "Star", "type": "shortcut", "value": "Command+Shift+B" }
+    "msedge": [
+      {
+        "label": "New Tab",
+        "icon": "Plus",
+        "type": "shortcut",
+        "value": "Control+T"
+      },
+      {
+        "label": "Close",
+        "icon": "X",
+        "type": "shortcut",
+        "value": "Control+W"
+      },
+      {
+        "label": "Reload",
+        "icon": "RefreshCw",
+        "type": "shortcut",
+        "value": "Control+R"
+      },
+      {
+        "label": "URL",
+        "icon": "Link",
+        "type": "shortcut",
+        "value": "Control+L"
+      },
+      {
+        "label": "InPrivate",
+        "icon": "EyeOff",
+        "type": "shortcut",
+        "value": "Control+Shift+N"
+      },
+      {
+        "label": "DevTools",
+        "icon": "Code",
+        "type": "shortcut",
+        "value": "F12"
+      },
+      {
+        "label": "Back",
+        "icon": "ArrowLeft",
+        "type": "shortcut",
+        "value": "Alt+ArrowLeft"
+      },
+      {
+        "label": "Copilot",
+        "icon": "Sparkles",
+        "type": "shortcut",
+        "value": "Control+Shift+."
+      }
     ],
-    "Finder": [
-      { "label": "Folder", "icon": "FolderPlus", "type": "shortcut", "value": "Command+Shift+N" },
-      { "label": "Hidden", "icon": "Eye", "type": "shortcut", "value": "Command+Shift+." },
-      { "label": "Terminal", "icon": "Terminal", "type": "command", "value": "osascript -e 'tell application \"Finder\" to set p to POSIX path of (target of front Finder window as text)' -e 'tell application \"Terminal\" to do script \"cd \" & quoted form of p'" },
-      { "label": "Info", "icon": "Info", "type": "shortcut", "value": "Command+I" },
-      { "label": "Delete", "icon": "Trash2", "type": "shortcut", "value": "Command+Delete" },
-      { "label": "AirDrop", "icon": "Share2", "type": "shortcut", "value": "Command+Shift+R" },
-      { "label": "Go To", "icon": "Navigation", "type": "shortcut", "value": "Command+Shift+G" },
-      { "label": "Trash", "icon": "Trash", "type": "command", "value": "osascript -e 'tell application \"Finder\" to empty trash'" }
+    "explorer": [
+      {
+        "label": "New Folder",
+        "icon": "FolderPlus",
+        "type": "shortcut",
+        "value": "Control+Shift+N"
+      },
+      {
+        "label": "Rename",
+        "icon": "Pencil",
+        "type": "shortcut",
+        "value": "F2"
+      },
+      {
+        "label": "Delete",
+        "icon": "Trash2",
+        "type": "shortcut",
+        "value": "Delete"
+      },
+      {
+        "label": "Properties",
+        "icon": "Info",
+        "type": "shortcut",
+        "value": "Alt+Enter"
+      },
+      {
+        "label": "Terminal",
+        "icon": "Terminal",
+        "type": "command",
+        "value": "wt -d ."
+      },
+      {
+        "label": "Address",
+        "icon": "Navigation",
+        "type": "shortcut",
+        "value": "Alt+D"
+      },
+      {
+        "label": "Hidden",
+        "icon": "Eye",
+        "type": "shortcut",
+        "value": "Control+H"
+      },
+      {
+        "label": "Select All",
+        "icon": "CheckCheck",
+        "type": "shortcut",
+        "value": "Control+A"
+      }
     ],
-    "Mail": [
-      { "label": "New", "icon": "PenSquare", "type": "shortcut", "value": "Command+N" },
-      { "label": "Reply", "icon": "Reply", "type": "shortcut", "value": "Command+R" },
-      { "label": "All", "icon": "ReplyAll", "type": "shortcut", "value": "Command+Shift+R" },
-      { "label": "Forward", "icon": "Forward", "type": "shortcut", "value": "Command+Shift+F" },
-      { "label": "Send", "icon": "Send", "type": "shortcut", "value": "Command+Shift+D" },
-      { "label": "Archive", "icon": "Archive", "type": "shortcut", "value": "Control+Command+A" },
-      { "label": "Read", "icon": "CheckCheck", "type": "shortcut", "value": "Command+Shift+U" },
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+Option+F" }
+    "OUTLOOK": [
+      {
+        "label": "New Mail",
+        "icon": "PenSquare",
+        "type": "shortcut",
+        "value": "Control+N"
+      },
+      {
+        "label": "Reply",
+        "icon": "Reply",
+        "type": "shortcut",
+        "value": "Control+R"
+      },
+      {
+        "label": "Reply All",
+        "icon": "ReplyAll",
+        "type": "shortcut",
+        "value": "Control+Shift+R"
+      },
+      {
+        "label": "Forward",
+        "icon": "Forward",
+        "type": "shortcut",
+        "value": "Control+F"
+      },
+      {
+        "label": "Send",
+        "icon": "Send",
+        "type": "shortcut",
+        "value": "Control+Enter"
+      },
+      {
+        "label": "Search",
+        "icon": "Search",
+        "type": "shortcut",
+        "value": "Control+E"
+      },
+      {
+        "label": "Calendar",
+        "icon": "Calendar",
+        "type": "shortcut",
+        "value": "Control+2"
+      },
+      {
+        "label": "Delete",
+        "icon": "Trash2",
+        "type": "shortcut",
+        "value": "Delete"
+      }
     ],
-    "Notes": [
-      { "label": "New", "icon": "FilePlus", "type": "shortcut", "value": "Command+N" },
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+F" },
-      { "label": "Bold", "icon": "Bold", "type": "shortcut", "value": "Command+B" },
-      { "label": "List", "icon": "List", "type": "shortcut", "value": "Command+Shift+L" },
-      { "label": "Check", "icon": "ListChecks", "type": "shortcut", "value": "Command+Shift+7" },
-      { "label": "Table", "icon": "Table", "type": "shortcut", "value": "Command+Option+T" },
-      { "label": "Pin", "icon": "Pin", "type": "command", "value": "osascript -e 'tell application \"System Events\" to tell process \"Notes\" to click menu item \"Pin Note\" of menu \"File\" of menu bar 1'" },
-      { "label": "Delete", "icon": "Trash2", "type": "shortcut", "value": "Command+Delete" }
-    ],
-    "WhatsApp": [
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+F" },
-      { "label": "New", "icon": "MessageSquarePlus", "type": "shortcut", "value": "Command+N" },
-      { "label": "Archive", "icon": "Archive", "type": "shortcut", "value": "Command+E" },
-      { "label": "Mute", "icon": "VolumeX", "type": "shortcut", "value": "Command+Shift+M" },
-      { "label": "Read", "icon": "CheckCheck", "type": "shortcut", "value": "Command+Shift+U" },
-      { "label": "Next", "icon": "ChevronDown", "type": "shortcut", "value": "Control+Tab" },
-      { "label": "Prev", "icon": "ChevronUp", "type": "shortcut", "value": "Control+Shift+Tab" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" }
-    ],
-    "Telegram": [
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+F" },
-      { "label": "New", "icon": "MessageSquarePlus", "type": "shortcut", "value": "Command+N" },
-      { "label": "Next", "icon": "ChevronDown", "type": "shortcut", "value": "Control+Tab" },
-      { "label": "Mute", "icon": "VolumeX", "type": "shortcut", "value": "Command+Shift+M" },
-      { "label": "Pin", "icon": "Pin", "type": "shortcut", "value": "Command+Shift+P" },
-      { "label": "Edit", "icon": "Pencil", "type": "shortcut", "value": "Command+E" },
-      { "label": "Lock", "icon": "Lock", "type": "shortcut", "value": "Command+L" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" }
-    ],
-    "ChatGPT": [
-      { "label": "New", "icon": "MessageSquarePlus", "type": "shortcut", "value": "Command+N" },
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+K" },
-      { "label": "Ask", "icon": "Sparkles", "type": "command", "value": "open \"https://chat.openai.com/?q=$(pbpaste | python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.stdin.read()))')\"" },
-      { "label": "Copy", "icon": "Copy", "type": "shortcut", "value": "Command+Shift+C" },
-      { "label": "Stop", "icon": "Square", "type": "shortcut", "value": "Escape" },
-      { "label": "Focus", "icon": "PenLine", "type": "shortcut", "value": "Command+Shift+O" },
-      { "label": "Sidebar", "icon": "PanelLeft", "type": "shortcut", "value": "Command+Shift+S" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" }
+    "notepad": [
+      {
+        "label": "New",
+        "icon": "FilePlus",
+        "type": "shortcut",
+        "value": "Control+N"
+      },
+      {
+        "label": "Open",
+        "icon": "FolderOpen",
+        "type": "shortcut",
+        "value": "Control+O"
+      },
+      {
+        "label": "Save",
+        "icon": "Save",
+        "type": "shortcut",
+        "value": "Control+S"
+      },
+      {
+        "label": "Find",
+        "icon": "Search",
+        "type": "shortcut",
+        "value": "Control+F"
+      },
+      {
+        "label": "Replace",
+        "icon": "RefreshCw",
+        "type": "shortcut",
+        "value": "Control+H"
+      },
+      {
+        "label": "Select All",
+        "icon": "CheckCheck",
+        "type": "shortcut",
+        "value": "Control+A"
+      },
+      {
+        "label": "Zoom+",
+        "icon": "ZoomIn",
+        "type": "shortcut",
+        "value": "Control+="
+      },
+      {
+        "label": "Zoom-",
+        "icon": "ZoomOut",
+        "type": "shortcut",
+        "value": "Control+-"
+      }
     ],
     "Spotify": [
-      { "label": "Play", "icon": "Play", "type": "command", "value": "osascript -e 'tell application \"Spotify\" to playpause'" },
-      { "label": "Next", "icon": "SkipForward", "type": "command", "value": "osascript -e 'tell application \"Spotify\" to next track'" },
-      { "label": "Prev", "icon": "SkipBack", "type": "command", "value": "osascript -e 'tell application \"Spotify\" to previous track'" },
-      { "label": "Like", "icon": "Heart", "type": "shortcut", "value": "Command+Shift+L" },
-      { "label": "Shuffle", "icon": "Shuffle", "type": "shortcut", "value": "Command+S" },
-      { "label": "Repeat", "icon": "Repeat", "type": "shortcut", "value": "Command+R" },
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+L" },
-      { "label": "Vol+", "icon": "Volume2", "type": "command", "value": "osascript -e 'tell application \"Spotify\" to set sound volume to (sound volume + 10)'" }
-    ],
-    "Calendar": [
-      { "label": "Event", "icon": "CalendarPlus", "type": "shortcut", "value": "Command+N" },
-      { "label": "Today", "icon": "CalendarCheck", "type": "shortcut", "value": "Command+T" },
-      { "label": "Day", "icon": "Calendar", "type": "shortcut", "value": "Command+1" },
-      { "label": "Week", "icon": "CalendarDays", "type": "shortcut", "value": "Command+2" },
-      { "label": "Month", "icon": "CalendarRange", "type": "shortcut", "value": "Command+3" },
-      { "label": "Search", "icon": "Search", "type": "shortcut", "value": "Command+F" },
-      { "label": "Refresh", "icon": "RefreshCw", "type": "shortcut", "value": "Command+R" },
-      { "label": "Delete", "icon": "Trash2", "type": "shortcut", "value": "Command+Delete" }
-    ],
-    "Preview": [
-      { "label": "Zoom+", "icon": "ZoomIn", "type": "shortcut", "value": "Command+=" },
-      { "label": "Zoom-", "icon": "ZoomOut", "type": "shortcut", "value": "Command+-" },
-      { "label": "Fit", "icon": "Maximize2", "type": "shortcut", "value": "Command+0" },
-      { "label": "Rotate", "icon": "RotateCw", "type": "shortcut", "value": "Command+R" },
-      { "label": "Markup", "icon": "Pencil", "type": "shortcut", "value": "Command+Shift+A" },
-      { "label": "Export", "icon": "Download", "type": "shortcut", "value": "Command+Shift+S" },
-      { "label": "Print", "icon": "Printer", "type": "shortcut", "value": "Command+P" },
-      { "label": "Close", "icon": "X", "type": "shortcut", "value": "Command+W" }
+      {
+        "label": "Play",
+        "icon": "Play",
+        "type": "shortcut",
+        "value": "Space"
+      },
+      {
+        "label": "Next",
+        "icon": "SkipForward",
+        "type": "shortcut",
+        "value": "Control+ArrowRight"
+      },
+      {
+        "label": "Prev",
+        "icon": "SkipBack",
+        "type": "shortcut",
+        "value": "Control+ArrowLeft"
+      },
+      {
+        "label": "Like",
+        "icon": "Heart",
+        "type": "shortcut",
+        "value": "Alt+Shift+B"
+      },
+      {
+        "label": "Shuffle",
+        "icon": "Shuffle",
+        "type": "shortcut",
+        "value": "Control+S"
+      },
+      {
+        "label": "Repeat",
+        "icon": "Repeat",
+        "type": "shortcut",
+        "value": "Control+R"
+      },
+      {
+        "label": "Search",
+        "icon": "Search",
+        "type": "shortcut",
+        "value": "Control+L"
+      },
+      {
+        "label": "Vol+",
+        "icon": "Volume2",
+        "type": "shortcut",
+        "value": "Control+ArrowUp"
+      }
     ]
-  }
+  },
+  "pinnedActions": [
+    {
+      "label": "Screenshot",
+      "icon": "Camera",
+      "type": "shortcut",
+      "value": "Control+Win+A"
+    }
+  ]
 }
