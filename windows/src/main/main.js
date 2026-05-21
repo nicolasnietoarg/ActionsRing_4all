@@ -310,7 +310,9 @@ function openSettings() {
   if (settingsWin) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
     width: 760, height: 560,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1d1d1f' : '#f5f5f7',
+    title: 'Actions Ring 4All',
+    icon: path.join(__dirname, '../../icon.png'),
+    backgroundColor: '#0f1923',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
   settingsWin.loadFile(path.join(__dirname, '../settings/index.html'));
@@ -346,9 +348,9 @@ function toggleOverlay() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../../tray-icon.png')).resize({ width: 16, height: 16 });
+  const icon = nativeImage.createFromPath(path.join(__dirname, '../../icon.png')).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip(`Actions Ring (${config.hotkey})`);
+  tray.setToolTip(`Actions Ring 4All (${config.hotkey})`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Settings', click: openSettings },
     { label: 'Auto-start', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
