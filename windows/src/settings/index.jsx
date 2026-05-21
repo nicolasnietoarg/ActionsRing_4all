@@ -110,49 +110,63 @@ function MacroEditor({ value, onChange }) {
 }
 
 function MacrosSection({ config, save }) {
-  const [macros, setMacros] = useState(config.macros || []);
+  const macros = config.macros || [];
   const [recording, setRecording] = useState(false);
   const [recordedSteps, setRecordedSteps] = useState([]);
+  const [liveKeys, setLiveKeys] = useState([]);
   const [newName, setNewName] = useState('');
   const lastKeyTime = useRef(Date.now());
+  const liveRef = useRef(null);
 
-  useEffect(() => { setMacros(config.macros || []); }, [config]);
-
-  const startRecording = () => {
+  const startRecording = async () => {
     setRecordedSteps([]);
+    setLiveKeys([]);
     setRecording(true);
     lastKeyTime.current = Date.now();
+    await window.settings.startRecording();
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     setRecording(false);
+    await window.settings.stopRecording();
   };
 
-  // Local key capture while recording
+  // Auto-scroll del log en vivo
+  useEffect(() => {
+    if (liveRef.current) liveRef.current.scrollTop = liveRef.current.scrollHeight;
+  }, [liveKeys]);
+
+  // Captura de teclas en vivo (keydown + keyup, incluyendo modificadores)
   useEffect(() => {
     if (!recording) return;
-    const handler = (e) => {
+
+    const addLive = (key, event) => {
+      setLiveKeys(prev => [...prev, { key, event, time: Date.now() }]);
+    };
+
+    const downHandler = (e) => {
       e.preventDefault();
+      e.stopPropagation();
+
+      const keyName = e.key === ' ' ? 'Space' : e.key;
+      addLive(keyName, '↓ down');
+
+      // No grabar pasos para modificadores solos
       if (['Shift', 'Control', 'Alt', 'Meta', 'OS'].includes(e.key)) return;
 
       const now = Date.now();
       const delay = Math.min(now - lastKeyTime.current, 2000);
       lastKeyTime.current = now;
 
-      // AltGr produces ctrlKey+altKey but the result is a printable char (like @, #, etc.)
-      // Detect: if key is a single printable char and AltGr was used, treat as typed character
       const isAltGr = e.ctrlKey && e.altKey;
-      const isPrintable = e.key.length === 1;
+      const isPrintable = e.key.length === 1 && e.key !== ' ';
       const hasCtrlOrAlt = e.ctrlKey || e.altKey || e.metaKey;
 
-      // Printable char without real modifiers (or with AltGr) → save as type:
       if (isPrintable && (!hasCtrlOrAlt || isAltGr)) {
         setRecordedSteps(prev => {
-          // Merge consecutive type: steps into one
           const last = prev[prev.length - 1];
           if (last && last.keys.startsWith('type:') && delay < 300) {
-            const merged = [...prev.slice(0, -1), { keys: last.keys + e.key, delay: last.delay }];
-            return merged;
+            return [...prev.slice(0, -1), { keys: last.keys + e.key, delay: last.delay }];
           }
           return [...prev, { keys: `type:${e.key}`, delay: prev.length === 0 ? 0 : delay }];
         });
@@ -171,24 +185,34 @@ function MacrosSection({ config, save }) {
 
       setRecordedSteps(prev => [...prev, { keys: parts.join('+'), delay: prev.length === 0 ? 0 : delay }]);
     };
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
+
+    const upHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const keyName = e.key === ' ' ? 'Space' : e.key;
+      addLive(keyName, '↑ up');
+      if (e.key === 'Escape') stopRecording();
+    };
+
+    window.addEventListener('keydown', downHandler, true);
+    window.addEventListener('keyup', upHandler, true);
+    return () => {
+      window.removeEventListener('keydown', downHandler, true);
+      window.removeEventListener('keyup', upHandler, true);
+    };
   }, [recording]);
 
   const saveMacro = () => {
     if (!newName || recordedSteps.length === 0) return;
     const macro = { label: newName, icon: 'Play', steps: recordedSteps };
-    const updated = [...macros, macro];
-    setMacros(updated);
-    save({ ...config, macros: updated });
+    save({ ...config, macros: [...macros, macro] });
     setRecordedSteps([]);
+    setLiveKeys([]);
     setNewName('');
   };
 
   const deleteMacro = (i) => {
-    const updated = macros.filter((_, j) => j !== i);
-    setMacros(updated);
-    save({ ...config, macros: updated });
+    save({ ...config, macros: macros.filter((_, j) => j !== i) });
   };
 
   return (
@@ -196,11 +220,14 @@ function MacrosSection({ config, save }) {
       <div className="section-label">🎹 Macros (secuencias de teclas grabadas)</div>
       <div className="actions-table">
         {macros.map((macro, i) => (
-          <div key={i} className="action-row">
+          <div key={i} className="action-row" style={{flexWrap: 'wrap', cursor: 'pointer'}} onClick={(e) => { if (e.target.tagName !== 'BUTTON') { const el = e.currentTarget.querySelector('.macro-steps-detail'); if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none'; }}}>
             <span className="row-icon"><Icon name={macro.icon || 'Play'} /></span>
             <span className="row-label">{macro.label}</span>
             <span className="row-type">{macro.steps.length} pasos</span>
             <button className="macro-remove" onClick={() => deleteMacro(i)}>×</button>
+            <div className="macro-steps-detail" style={{display: 'none', width: '100%', flexWrap: 'wrap', gap: 4, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+              {macro.steps.map((s, j) => <span key={j} className="step-tag" style={{fontSize: 11, padding: '2px 6px', background: 'rgba(100,200,255,0.15)', borderRadius: 4}}>{s.keys} <small style={{opacity:0.5}}>{s.delay}ms</small></span>)}
+            </div>
           </div>
         ))}
         {!macros.length && <div className="action-row"><span className="row-label" style={{opacity:0.5}}>No hay macros grabadas</span></div>}
@@ -212,8 +239,17 @@ function MacrosSection({ config, save }) {
         )}
         {recording && (
           <div className="recording-active">
-            <span className="recording-dot">●</span> Grabando... ({recordedSteps.length} pasos)
+            <span className="recording-dot">●</span> Grabando... ({recordedSteps.length} pasos) — <small>ESC para parar</small>
             <button className="btn btn-stop" onClick={stopRecording}>⏹ Parar</button>
+            <div className="live-keys" ref={liveRef} style={{maxHeight: 150, overflowY: 'auto', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', borderRadius: 6, fontFamily: 'SF Mono, Consolas, monospace', fontSize: 11, lineHeight: '18px'}}>
+              {liveKeys.map((lk, i) => (
+                <div key={i} style={{color: lk.event.includes('down') ? '#6ef' : '#f96'}}>
+                  <span style={{opacity: 0.5, marginRight: 6}}>{lk.event}</span>
+                  <strong>{lk.key}</strong>
+                </div>
+              ))}
+              {liveKeys.length === 0 && <span style={{opacity: 0.4}}>Presioná teclas...</span>}
+            </div>
           </div>
         )}
         {!recording && recordedSteps.length > 0 && (
@@ -224,7 +260,7 @@ function MacrosSection({ config, save }) {
             <div className="save-row">
               <input className="input-field" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nombre de la macro" />
               <button className="btn btn-primary" onClick={saveMacro}>Guardar</button>
-              <button className="btn" onClick={() => setRecordedSteps([])}>Descartar</button>
+              <button className="btn" onClick={() => { setRecordedSteps([]); setLiveKeys([]); }}>Descartar</button>
             </div>
           </div>
         )}
