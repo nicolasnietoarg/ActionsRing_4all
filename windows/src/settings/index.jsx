@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move } from 'lucide-react';
+import { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap } from 'lucide-react';
 
-const iconMap = { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move };
+const iconMap = { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap };
 
 function Icon({ name, size = 18 }) {
   const LucideIcon = iconMap[name];
@@ -217,7 +217,7 @@ function MacrosSection({ config, save }) {
 
   return (
     <div className="section">
-      <div className="section-label">🎹 Macros (secuencias de teclas grabadas)</div>
+      <div className="section-label">Macros (secuencias de teclas grabadas)</div>
       <div className="actions-table">
         {macros.map((macro, i) => (
           <div key={i} className="action-row" style={{flexWrap: 'wrap', cursor: 'pointer'}} onClick={(e) => { if (e.target.tagName !== 'BUTTON') { const el = e.currentTarget.querySelector('.macro-steps-detail'); if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none'; }}}>
@@ -422,7 +422,7 @@ function Settings() {
         <div className="sidebar-title">Perfiles</div>
         {profiles.map(p => (
           <div key={p} className={`sidebar-item ${p === selectedProfile ? 'active' : ''}`} onClick={() => { setSelectedProfile(p); setEditing(null); }}>
-            <span className="icon">{p === '_default' ? '🌐' : '📱'}</span>
+            <span className="icon"><Icon name={p === '_default' ? 'Globe' : 'AppWindow'} size={16} /></span>
             {p === '_default' ? 'Default' : p}
           </div>
         ))}
@@ -440,10 +440,14 @@ function Settings() {
         )}
         <div className="sidebar-title" style={{marginTop: 16}}>Herramientas</div>
         <div className="sidebar-item" onClick={() => { setSelectedProfile('__clipboard'); setEditing(null); }}>
-          <span className="icon">📋</span> Clipboard
+          <span className="icon"><Icon name="Clipboard" size={16} /></span> Clipboard
         </div>
         <div className="sidebar-item" onClick={() => { setSelectedProfile('__macros'); setEditing(null); }}>
-          <span className="icon">🎹</span> Macros
+          <span className="icon"><Icon name="Zap" size={16} /></span> Macros
+        </div>
+        <div className="sidebar-footer">
+          <div className="sidebar-credit">Desarrollado por <a href="https://www.linkedin.com/in/niconietoarg/" target="_blank" rel="noopener">Nicolás Nieto</a></div>
+          <div className="sidebar-credit"><a href="https://github.com/nicolasnietoarg/ActionsRing_4all" target="_blank" rel="noopener">GitHub Repo</a></div>
         </div>
       </div>
 
