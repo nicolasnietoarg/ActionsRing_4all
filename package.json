@@ -1,7 +1,7 @@
 {
-  "name": "actions-ring",
+  "name": "actions-ring-4all",
   "version": "0.1.0",
-  "description": "Universal Actions Ring - radial menu overlay for any mouse/keyboard",
+  "description": "Actions Ring 4All - radial menu overlay for any mouse/keyboard",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -14,17 +14,19 @@
   },
   "build": {
     "appId": "com.actionsring.app",
-    "productName": "Actions Ring",
+    "productName": "Actions Ring 4All",
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "ring.png",
+      "icon": "icon.png",
       "target": "dmg"
     },
     "files": [
       "src/**/*",
       "dist/**/*",
       "config/**/*",
-      "tray-icon.png"
+      "tray-icon.png",
+      "icon.png",
+      "icon-dock.png"
     ]
   },
   "dependencies": {

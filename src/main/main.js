@@ -73,8 +73,10 @@ function openSettings() {
   if (settingsWin) { settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
     width: 760, height: 560,
+    title: 'Actions Ring 4All',
     titleBarStyle: 'hiddenInset',
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1d1d1f' : '#f5f5f7',
+    icon: path.join(__dirname, '../../icon.png'),
+    backgroundColor: '#0f1923',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
   settingsWin.loadFile(path.join(__dirname, '../settings/index.html'));
@@ -88,13 +90,16 @@ function toggleOverlay() {
   if (overlay.isVisible()) { overlay.hide(); return; }
   const activeApp = getActiveApp();
   lastActiveApp = activeApp;
-  const actions = config.actions[activeApp] || config.actions._default;
+  const profileActions = config.actions[activeApp] || config.actions._default;
+  const pinnedActions = (config.pinnedActions || []).map(a => ({ ...a, _pinned: true }));
+  const pinnedLabels = new Set(pinnedActions.map(a => a.label));
+  const actions = [...pinnedActions, ...profileActions.filter(a => !pinnedLabels.has(a.label))];
   const rolProfiles = (config.rolProfiles || []).map(name => ({
     name, icon: profileIcons[name] || 'AppWindow',
     actions: (config.actions[name] || []).slice(0, 6),
   }));
   const isDark = nativeTheme.shouldUseDarkColors;
-  overlay.webContents.send('show-ring', { actions, activeApp, rolProfiles, isDark });
+  overlay.webContents.send('show-ring', { actions, activeApp, rolProfiles, isDark, animation: config.animation || {}, macros: config.macros || [] });
   const cursor = screen.getCursorScreenPoint();
   overlay.setPosition(cursor.x - 350, cursor.y - 350);
   overlay.show();
@@ -102,10 +107,10 @@ function toggleOverlay() {
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../../tray-icon.png')).resize({ width: 18, height: 18 });
+  const icon = nativeImage.createFromPath(path.join(__dirname, '../../icon.png')).resize({ width: 18, height: 18 });
   icon.setTemplateImage(true);
   tray = new Tray(icon);
-  tray.setToolTip(`Actions Ring (${config.hotkey})`);
+  tray.setToolTip(`Actions Ring 4All (${config.hotkey})`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Settings', click: openSettings },
     { label: 'Auto-start', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
@@ -169,6 +174,24 @@ ipcMain.handle('get-running-apps', () => {
 });
 ipcMain.handle('get-clipboard-history', () => clipboardHistory);
 ipcMain.handle('get-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+
+// --- IPC: Macros ---
+ipcMain.on('execute-macro', (_, macro) => {
+  overlay.hide();
+  setTimeout(() => executeMacro(macro.steps), 200);
+});
+ipcMain.handle('save-macro', (_, macro) => {
+  if (!config.macros) config.macros = [];
+  config.macros.push(macro);
+  saveConfig(config);
+  return config.macros;
+});
+ipcMain.handle('delete-macro', (_, index) => {
+  if (config.macros) config.macros.splice(index, 1);
+  saveConfig(config);
+  return config.macros;
+});
+ipcMain.handle('get-macros', () => config.macros || []);
 
 // --- IPC: Window management ---
 ipcMain.on('window-manage', (_, position) => {
@@ -237,9 +260,39 @@ function executeAction(action) {
       } catch {}
       break;
     }
+    case 'macro': {
+      const steps = typeof action.value === 'string' ? JSON.parse(action.value) : action.value;
+      executeMacro(steps);
+      break;
+    }
+  }
+}
+
+function typeText(text) {
+  const escaped = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const script = `tell application "System Events" to keystroke "${escaped}"`;
+  const p = spawn('osascript', ['-']); p.stdin.write(script); p.stdin.end();
+}
+
+function executeMacro(steps) {
+  let delay = 0;
+  for (const step of steps) {
+    const d = step.delay || 50;
+    setTimeout(() => {
+      const keys = step.keys || '';
+      if (keys.startsWith('type:')) {
+        typeText(expandVariables(keys.slice(5)));
+      } else {
+        // Reuse executeAction shortcut logic
+        executeAction({ type: 'shortcut', value: keys });
+      }
+    }, delay);
+    delay += d;
   }
 }
 
 app.on('will-quit', () => globalShortcut.unregisterAll());
 app.on('activate', () => openSettings());
-app.dock?.hide();
+if (app.dock) {
+  app.dock.setIcon(path.join(__dirname, '../../icon-dock.png'));
+}
