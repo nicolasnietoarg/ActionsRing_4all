@@ -1,0 +1,39 @@
+name: Build Windows Portable
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: windows
+        run: npm ci
+
+      - name: Build portable exe
+        working-directory: windows
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows/dist/ActionsRing-Portable-*.exe
+          body: |
+            ## Actions Ring ${{ github.ref_name }} - Windows Portable
+
+            Download `ActionsRing-Portable-*.exe` and double-click to run. No installation required.
+
+            **Hotkey:** Ctrl+Alt+Space
+
+            See [CHANGES.md](windows/CHANGES.md) for full changelog.
