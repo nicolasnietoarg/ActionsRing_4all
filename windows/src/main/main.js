@@ -30,12 +30,36 @@ const EnumWindows = user32.func('EnumWindows', 'bool', [koffi.pointer('void'), '
 const IsWindowVisible = user32.func('IsWindowVisible', 'bool', [HWND]);
 const GetWindowTextW = user32.func('GetWindowTextW', 'int32', [HWND, 'uint16 *', 'int32']);
 const GetWindowTextLengthW = user32.func('GetWindowTextLengthW', 'int32', [HWND]);
+const GetCurrentThreadId = kernel32.func('GetCurrentThreadId', DWORD, []);
+const AttachThreadInput = user32.func('AttachThreadInput', 'bool', [DWORD, DWORD, 'bool']);
+const SetFocus = user32.func('SetFocus', HWND, [HWND]);
 
 const PROCESS_QUERY_INFORMATION = 0x0400;
 const PROCESS_VM_READ = 0x0010;
 
 // --- Estado global ---
 let overlay = null;
+
+// --- Restaurar foco a la ventana anterior con AttachThreadInput ---
+function restoreFocus() {
+  if (!lastActiveHwnd) return;
+  try {
+    const pidBuf = [0];
+    GetWindowThreadProcessId(lastActiveHwnd, pidBuf);
+    const targetThread = pidBuf[0];
+    const ourThread = GetCurrentThreadId();
+    if (targetThread && targetThread !== ourThread) {
+      AttachThreadInput(ourThread, targetThread, true);
+      SetForegroundWindow(lastActiveHwnd);
+      SetFocus(lastActiveHwnd);
+      AttachThreadInput(ourThread, targetThread, false);
+    } else {
+      SetForegroundWindow(lastActiveHwnd);
+    }
+  } catch {
+    try { SetForegroundWindow(lastActiveHwnd); } catch {}
+  }
+}
 let settingsWin = null;
 let tray = null;
 let config = null;
@@ -357,14 +381,12 @@ ipcMain.on('execute-action', (_, action) => {
   overlay.hide();
 
   // Restaurar foco a la ventana anterior
-  if (lastActiveHwnd) {
-    try { SetForegroundWindow(lastActiveHwnd); } catch {}
-  }
+  restoreFocus();
 
   if (action.type === 'shortcut') {
-    setTimeout(() => sendKeys(action.value), 150);
+    setTimeout(() => sendKeys(action.value), 200);
   } else {
-    setTimeout(() => executeAction(action), 150);
+    setTimeout(() => executeAction(action), 200);
   }
 });
 
@@ -374,8 +396,8 @@ ipcMain.on('renderer-log', (_, msg) => console.log('[renderer]', msg));
 // --- Macro execution from ring ---
 ipcMain.on('execute-macro', (_, macro) => {
   overlay.hide();
-  if (lastActiveHwnd) { try { SetForegroundWindow(lastActiveHwnd); } catch {} }
-  setTimeout(() => executeMacro(macro.steps), 150);
+  restoreFocus();
+  setTimeout(() => executeMacro(macro.steps), 200);
 });
 
 // --- Macro recording ---
