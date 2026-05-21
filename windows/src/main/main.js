@@ -13,6 +13,7 @@ const psapi = koffi.load('psapi.dll');
 const HWND = koffi.pointer('HWND', koffi.opaque());
 const HANDLE = koffi.pointer('HANDLE', koffi.opaque());
 const DWORD = koffi.alias('DWORD', 'uint32');
+const WNDENUMPROC = koffi.proto('WNDENUMPROC', 'bool', [HWND, 'intptr']);
 
 // Constantes para SendInput
 const INPUT_KEYBOARD = 1;
@@ -27,7 +28,7 @@ const OpenProcess = kernel32.func('OpenProcess', HANDLE, [DWORD, 'bool', DWORD])
 const CloseHandle = kernel32.func('CloseHandle', 'bool', [HANDLE]);
 const GetModuleBaseNameW = psapi.func('GetModuleBaseNameW', DWORD, [HANDLE, 'void *', 'uint16 *', DWORD]);
 const SendInput = user32.func('SendInput', 'uint32', ['uint32', 'void *', 'int32']);
-const EnumWindows = user32.func('EnumWindows', 'bool', [koffi.pointer('void'), 'intptr']);
+const EnumWindows = user32.func('EnumWindows', 'bool', [koffi.pointer(WNDENUMPROC), 'intptr']);
 const IsWindowVisible = user32.func('IsWindowVisible', 'bool', [HWND]);
 const GetWindowTextW = user32.func('GetWindowTextW', 'int32', [HWND, 'uint16 *', 'int32']);
 const GetWindowTextLengthW = user32.func('GetWindowTextLengthW', 'int32', [HWND]);
@@ -84,7 +85,7 @@ function focusAppWindow(appName) {
       if (name.toLowerCase() === appName.toLowerCase()) targetHwnd = hwnd;
     }
     return 1;
-  }, koffi.pointer('void'));
+  }, koffi.pointer(WNDENUMPROC));
   try { EnumWindows(cb, 0); } catch {}
   koffi.unregister(cb);
   if (targetHwnd) {
@@ -185,7 +186,7 @@ function getRunningApps() {
       apps.add(name);
     }
     return 1;
-  }, koffi.pointer('void'));
+  }, koffi.pointer(WNDENUMPROC));
 
   try { EnumWindows(cb, 0); } catch {}
   koffi.unregister(cb);
