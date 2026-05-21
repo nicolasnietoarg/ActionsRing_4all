@@ -1,5 +1,5 @@
 {
-  "hotkey": "Control+Alt+Space",
+  "hotkey": "Control+Shift+Alt+Space",
   "animation": {
     "enabled": true,
     "entrance": "pop",
@@ -58,6 +58,16 @@
       "steps": [
         {
           "keys": "type:REDACTED",
+          "delay": 0
+        }
+      ]
+    },
+    {
+      "label": "SQL FAST",
+      "icon": "Play",
+      "steps": [
+        {
+          "keys": "Control+Alt+Space",
           "delay": 0
         }
       ]

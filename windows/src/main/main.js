@@ -387,7 +387,9 @@ ipcMain.handle('start-recording', () => {
   recording = true;
   recordBuffer = [];
   recordLastTime = Date.now();
-  console.log('[macro] Recording started');
+  // Desregistrar hotkey para que no intercepte teclas durante grabación
+  globalShortcut.unregisterAll();
+  console.log('[macro] Recording started, hotkeys unregistered');
   return true;
 });
 
@@ -396,6 +398,10 @@ ipcMain.handle('stop-recording', () => {
   console.log('[macro] Recording stopped, steps:', recordBuffer.length);
   const result = [...recordBuffer];
   recordBuffer = [];
+  // Re-registrar hotkeys
+  globalShortcut.register(config.hotkey, toggleOverlay);
+  globalShortcut.register('Escape', () => { if (overlay && overlay.isVisible()) overlay.hide(); });
+  console.log('[macro] Hotkeys re-registered');
   return result;
 });
 
