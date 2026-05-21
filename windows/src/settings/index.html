@@ -5,7 +5,7 @@
   <title>Actions Ring 4All - Settings</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; }
+    html, body { height: 100%; overflow: hidden; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
       font-size: 13px;
@@ -16,7 +16,13 @@
     body * { -webkit-app-region: no-drag; }
     .loading { padding: 60px; text-align: center; color: #64748b; }
 
-    .app { display: flex; height: 100%; padding-top: 38px; }
+    .app { display: flex; height: 100%; overflow: hidden; }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(38,186,142,0.2); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(38,186,142,0.4); }
 
     /* Sidebar — Kugo dark */
     .sidebar {
@@ -25,8 +31,7 @@
       border-right: 1px solid rgba(38,186,142,0.1);
       padding: 12px 8px;
       display: flex; flex-direction: column; gap: 2px;
-      overflow-y: auto;
-      -webkit-app-region: drag;
+      overflow-y: auto; max-height: 100%;
     }
     .sidebar * { -webkit-app-region: no-drag; }
     .sidebar-title { font-size: 11px; font-weight: 600; color: #64748b; padding: 8px 10px 4px; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -58,7 +63,7 @@
     .dropdown-cancel:hover { color: #e2e8f0; }
 
     /* Main content */
-    .main { flex: 1; padding: 24px 28px; overflow-y: auto; }
+    .main { flex: 1; padding: 24px 28px; overflow-y: auto; max-height: 100%; }
     .main h2 { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #f1f5f9; }
 
     /* Sections */
