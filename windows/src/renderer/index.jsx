@@ -126,7 +126,7 @@ function Ring() {
 
         <button className="center-btn" onClick={close}
           style={closing ? { animation: `popOut ${200 / (animation.speed || 1)}ms ease ${(actions.length * (animation.stagger || 50)) / (animation.speed || 1)}ms both` } : {}}>
-          <span className="center-icon"><Icon name="Command" size={24} /></span>
+          <img className="center-icon" src="logo.png" style={{width: 54, height: 54, objectFit: 'contain', filter: 'drop-shadow(0 0 8px rgba(38,186,142,0.4))'}} />
           <span className="center-label">{activeApp}</span>
         </button>
 

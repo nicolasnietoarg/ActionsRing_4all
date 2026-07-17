@@ -20,12 +20,12 @@
     /* Center button — Kugo teal */
     .center-btn {
       position: absolute;
-      left: calc(50% - 50px); top: calc(50% - 50px);
-      width: 100px; height: 100px;
+      left: calc(50% - 65px); top: calc(50% - 65px);
+      width: 130px; height: 130px;
       border-radius: 50%;
       background: linear-gradient(145deg, #1a2332, #0f1923);
       border: 1.5px solid rgba(38,186,142,0.3);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(38,186,142,0.1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 25px rgba(38,186,142,0.2), 0 0 50px rgba(38,186,142,0.08);
       color: #26ba8e;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -35,12 +35,12 @@
     }
     .center-btn:hover {
       transform: scale(1.08);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(38,186,142,0.2);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 40px rgba(38,186,142,0.3), 0 0 60px rgba(38,186,142,0.12);
       border-color: rgba(38,186,142,0.5);
     }
     .center-btn:active { transform: scale(0.92); }
-    .center-icon { font-size: 22px; }
-    .center-label { font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 2px; font-weight: 500; letter-spacing: 0.3px; }
+    .center-icon { display: flex; align-items: center; justify-content: center; }
+    .center-label { font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 4px; font-weight: 500; letter-spacing: 0.3px; }
 
     /* Bubble buttons — Kugo dark + teal */
     .bubble {

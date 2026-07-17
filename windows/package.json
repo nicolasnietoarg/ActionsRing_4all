@@ -16,7 +16,7 @@
     "appId": "com.actionsring.windows",
     "productName": "Actions Ring",
     "win": {
-      "icon": "ring.png",
+      "icon": "icon.png",
       "target": [
         { "target": "portable", "arch": ["x64"] }
       ]
