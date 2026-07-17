@@ -15,7 +15,7 @@ A dedicated "Macro" bubble in the ring (purple accent) that opens a fan of recor
 
 **Smart recording:**
 - Printable characters (including `@`, `#`, special chars via AltGr) are merged into `type:` steps
-- Consecutive characters typed quickly are merged into a single step (e.g. `type:REDACTED`)
+- Consecutive characters typed quickly are merged into a single step (e.g. `type:hello world`)
 - Shortcuts (Ctrl+C, Alt+Tab) are captured as-is
 - Real delays between keystrokes are preserved
 

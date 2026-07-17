@@ -57,7 +57,7 @@ Record keystroke sequences and replay them from the ring:
 3. Stop → Name it → Save
 4. Access from the purple "Macro" bubble in the ring
 
-Smart recording merges consecutive characters (e.g. typing `REDACTED` becomes a single `type:REDACTED` step).
+Smart recording merges consecutive characters (e.g. typing `hello world` becomes a single `type:hello world` step).
 
 ### Configurable Animations
 

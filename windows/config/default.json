@@ -23,46 +23,6 @@
       ]
     },
     {
-      "label": "LAN",
-      "icon": "Play",
-      "steps": [
-        {
-          "keys": "type:REDACTED",
-          "delay": 0
-        },
-        {
-          "keys": "type:REDACTED",
-          "delay": 312
-        },
-        {
-          "keys": "AltGraph",
-          "delay": 266
-        },
-        {
-          "keys": "type:REDACTED",
-          "delay": 297
-        },
-        {
-          "keys": "type:REDACTED",
-          "delay": 498
-        },
-        {
-          "keys": "type:REDACTED",
-          "delay": 312
-        }
-      ]
-    },
-    {
-      "label": "USER",
-      "icon": "Play",
-      "steps": [
-        {
-          "keys": "type:REDACTED",
-          "delay": 0
-        }
-      ]
-    },
-    {
       "label": "SQL FAST",
       "icon": "Play",
       "steps": [
