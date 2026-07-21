@@ -1,15 +1,61 @@
 # Windows Port - Changelog
 
+## v0.4.1 — 2026-07-17
+
+### Security: Credential cleanup
+
+Removed leaked credentials from config and documentation. Git history purged with `git filter-repo`.
+
+**What was removed:**
+- Macros containing hardcoded username/password from `config/default.json`
+- Password examples from `CHANGES.md` and `README.md`
+- All traces from git history (21 commits rewritten)
+
+**Recommendation:** Never store credentials in macros. Use a password manager.
+
+### Fixed: CI/CD pipeline now works
+
+The GitHub Actions workflow `build-windows.yml` was failing on every tag push since the project was created. Two bugs fixed:
+
+| Bug | Cause | Fix |
+|-----|-------|-----|
+| `npm ci` fails with "Missing: electron-builder" | Tag `v0.4.0` pointed to an old commit with a stale `package-lock.json` (102 packages, missing electron-builder tree) | Re-pointed tag to HEAD where lockfile has all 355 packages |
+| `Upload release asset` 403 Forbidden | `GITHUB_TOKEN` lacked write permission | Added `permissions: contents: write` to the workflow |
+
+The portable `.exe` is now automatically built and published to Releases on every tag push.
+
+### Improved: Settings UI — emoji-free icons
+
+Replaced all emoji glyphs in the Settings UI with proper Lucide React SVG icons for visual consistency and cross-platform rendering:
+
+| Before (emoji) | After (Lucide) | Location |
+|---|---|---|
+| 🔴 | `<Circle>` (filled) | Record macro button |
+| ● | `<Circle>` | Recording indicator |
+| ⏹ | `<Square>` (filled) | Stop button |
+| 📌 | `<Pin>` | Pinned section label + checkbox |
+| 🎬 | `<Film>` | Animation section label |
+| ⠿ | `<GripVertical>` | Drag handle |
+| ＋ | `<Plus>` | Add buttons (profile, action, step) |
+| × | `<X>` | Remove buttons (step, macro, rol tag) |
+| ⭐ | `Star` | Default new action icon |
+
+Also added:
+- `aria-label` attributes on icon-only buttons (accessibility)
+- CSS alignment classes for inline icon+text layout
+
+---
+
 ## v0.4.0 — 2026-05-20
 
 ### New: Macro Bubble with Recorder
 
 A dedicated "Macro" bubble in the ring (purple accent) that opens a fan of recorded macros. Click any macro to replay the keystroke sequence.
 
-**Recording workflow (Settings → 🎹 Macros):**
-1. Click "🔴 Record macro"
+**Recording workflow (Settings → Macros):**
+1. Click Record macro button
 2. Type normally — keystrokes are captured in real-time with actual delays
-3. Click "⏹ Stop"
+3. Click Stop
 4. Preview recorded steps → name it → Save
 5. Macro appears in the ring under the Macro bubble
 

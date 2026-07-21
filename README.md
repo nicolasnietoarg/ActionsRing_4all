@@ -20,7 +20,7 @@ Floating radial action menu for macOS & Windows. Context-aware shortcuts, app pr
 ## Run from Source
 
 ### Requirements
-- Node.js 18+ ([download](https://nodejs.org))
+- Node.js 20+ ([download](https://nodejs.org))
 
 ### Windows
 ```bash
@@ -43,7 +43,7 @@ npm run dev
 - **Rol system** — access other app profiles without switching context
 - **Clipboard history** — last 20 items, click to paste
 - **Window management** — snap left/right/maximize
-- **Settings UI** — drag & drop reorder, key recorder, dark/light theme
+- **Settings UI** — drag & drop reorder, key recorder, Lucide icons throughout, dark theme
 
 ### Macros (Windows v0.4.0+)
 - **Macro recorder** — record keystrokes in real-time with actual delays
@@ -113,22 +113,47 @@ ActionsRing_4all/
 └── .github/workflows/           # CI: builds portable .exe on tag push
 ```
 
-## Building Portable .exe
+## Building
+
+### Portable .exe (automatic)
 
 The portable exe is built automatically by GitHub Actions when you push a tag:
 
 ```bash
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.4.1
+git push origin v0.4.1
 ```
 
-The `.exe` appears in [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases) within minutes.
+The `.exe` appears in [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases) within ~3 minutes.
 
-To build locally (requires admin on Windows):
+### Build locally
+
 ```bash
 cd windows
-npm run dist
+npm run dist        # portable .exe
+npm run dist:nsis   # installer .exe (NSIS)
 ```
+
+### MSI installer (planned)
+
+MSI packaging for enterprise deployment (Intune/GPO/SCCM) is planned. Requires:
+- WiX Toolset 3.x on the build machine
+- Moving writable config from `process.execPath` to `%APPDATA%` (already identified)
+- Code signing certificate (recommended to avoid SmartScreen warnings)
+
+See roadmap below.
+
+## Security
+
+### Config file
+
+The `config/default.json` file is **user-specific** and may contain personal macros. Never commit macros that contain passwords, credentials, or sensitive text.
+
+Best practice: keep `config/default.json` for the clean defaults you ship, and use `electron-store` or `%APPDATA%` for the user's customized config at runtime.
+
+### Command injection
+
+Action type `command` interpolates `{clipboard}` into shell commands. Be aware that clipboard content is untrusted input. Use `shell.openExternal()` for URLs when possible.
 
 ## macOS Permissions
 
@@ -136,6 +161,16 @@ npm run dist
 - Add `Electron.app` (dev) or `Actions Ring.app` (production)
 
 Required for `shortcut` type actions. `command` and `open` work without permissions.
+
+## Roadmap
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| MSI installer | 🔜 Planned | Enterprise deployment via WiX |
+| Config in `%APPDATA%` | 🔜 Planned | Required for MSI, also improves portable |
+| Unified codebase (macOS/Windows) | 🔜 Planned | Shared renderer + platform adapters |
+| Auto-update (electron-updater) | 💡 Future | |
+| Command injection hardening | 💡 Future | Escape clipboard variables |
 
 ## Contributing
 

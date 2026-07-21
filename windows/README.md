@@ -4,7 +4,7 @@ Floating radial action menu that runs from the command line. No installation req
 
 ## Requirements
 
-- **Node.js 18+** — [download](https://nodejs.org) (LTS version)
+- **Node.js 20+** — [download](https://nodejs.org) (LTS version)
 - No admin permissions needed.
 
 ## Quick Start
@@ -19,6 +19,10 @@ Or manually:
 npm install
 npm run dev
 ```
+
+## Download Pre-built
+
+Download the portable `.exe` from [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/latest) — no Node.js required, just double-click.
 
 ## Usage
 
@@ -52,12 +56,14 @@ Actions that always appear regardless of active app. Configure in Settings by se
 
 Record keystroke sequences and replay them from the ring:
 
-1. Settings → Macros → 🔴 Record
+1. Settings → Macros → Click Record
 2. Type your sequence (shortcuts + text)
 3. Stop → Name it → Save
 4. Access from the purple "Macro" bubble in the ring
 
 Smart recording merges consecutive characters (e.g. typing `hello world` becomes a single `type:hello world` step).
+
+⚠️ **Security:** Never record macros containing passwords or credentials. They are stored in plaintext in `config/default.json`.
 
 ### Configurable Animations
 
@@ -92,18 +98,27 @@ Use type `command` with:
 - `window:right` — snap window right
 - `window:maximize` — maximize window
 
+## Building
+
+```bash
+npm run dist        # portable .exe
+npm run dist:nsis   # installer .exe (NSIS)
+```
+
+The CI automatically builds and publishes to GitHub Releases on every tag push (`v*`).
+
 ## Structure
 
 ```
 windows/
 ├── run.bat              ← Double-click to run
 ├── package.json
-├── config/default.json  ← Configuration
+├── config/default.json  ← Default configuration (shipped clean)
 ├── src/
 │   ├── main/main.js     ← Main process (Win32 API via koffi)
 │   ├── main/preload.js  ← Context bridge
-│   ├── renderer/        ← Ring UI
-│   └── settings/        ← Settings UI
+│   ├── renderer/        ← Ring UI (React + Lucide icons)
+│   └── settings/        ← Settings UI (React + Lucide icons)
 ├── dist/                ← Generated on build
 └── CHANGES.md           ← Changelog
 ```
@@ -115,4 +130,6 @@ windows/
 - Keystrokes sent via Win32 `SendInput` (native, reliable)
 - Active app detection via `GetForegroundWindow` + `GetModuleBaseNameW` (~0ms)
 - No PowerShell dependency — all native via `koffi` FFI
+- All UI icons use Lucide React SVG (no emoji dependencies)
+- Settings UI has aria-labels on icon-only buttons for accessibility
 - Dependency: `koffi` (prebuilt binaries, no build tools needed)

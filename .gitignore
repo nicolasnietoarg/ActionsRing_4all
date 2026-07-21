@@ -5,3 +5,4 @@ windows/dist/
 bin/
 *.dmg
 chat.json
+.backups/

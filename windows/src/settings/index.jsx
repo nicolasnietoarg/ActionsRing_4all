@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap } from 'lucide-react';
+import { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap, Circle, GripVertical, Film } from 'lucide-react';
 
-const iconMap = { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap };
+const iconMap = { Copy, ClipboardPaste, Undo2, Save, Camera, Lock, Moon, Search, Terminal, Palette, GitBranch, FolderOpen, Columns2, X, Plus, RefreshCw, Link, EyeOff, ArrowLeft, ArrowRight, Code, Star, FolderPlus, Eye, Info, Trash2, Share2, Navigation, Trash, PenSquare, Reply, ReplyAll, Forward, Send, Archive, CheckCheck, FilePlus, Bold, List, ListChecks, Table, Pin, MessageSquarePlus, VolumeX, ChevronDown, ChevronUp, Pencil, Sparkles, Square, PenLine, PanelLeft, Play, SkipForward, SkipBack, Heart, Shuffle, Repeat, Volume2, CalendarPlus, CalendarCheck, Calendar, CalendarDays, CalendarRange, ZoomIn, ZoomOut, Maximize2, RotateCw, Download, Printer, Command, Target, Music, Globe, Compass, Mail, StickyNote, MessageCircle, Folder, Image, AppWindow, Clipboard, Move, Zap, Circle, GripVertical, Film };
 
 function Icon({ name, size = 18 }) {
   const LucideIcon = iconMap[name];
@@ -57,7 +57,7 @@ function KeyRecorder({ value, onChange }) {
 
   return (
     <button className={`key-recorder ${recording ? 'recording' : ''}`} onClick={() => setRecording(true)}>
-      {recording ? '● Presioná las teclas...' : (value || 'Click para grabar')}
+      {recording ? <><Circle size={9} fill="currentColor" /> Presioná las teclas...</> : (value || 'Click para grabar')}
     </button>
   );
 }
@@ -100,10 +100,10 @@ function MacroEditor({ value, onChange }) {
           <input className="macro-input" value={step.keys} onChange={(e) => updateStep(i, 'keys', e.target.value)} placeholder="Control+C o type:texto" />
           <input className="macro-delay" type="number" value={step.delay || 0} onChange={(e) => updateStep(i, 'delay', parseInt(e.target.value) || 0)} title="Delay (ms)" />
           <span className="macro-delay-label">ms</span>
-          <button className="macro-remove" onClick={() => removeStep(i)}>×</button>
+          <button className="macro-remove" aria-label="Eliminar paso" onClick={() => removeStep(i)}><X size={14} /></button>
         </div>
       ))}
-      <button className="btn btn-small" onClick={addStep}>＋ Paso</button>
+      <button className="btn btn-small" onClick={addStep}><Plus size={12} /> Paso</button>
       <div className="macro-hint">Usar <code>type:texto</code> para escribir texto, o shortcuts como <code>Control+A</code></div>
     </div>
   );
@@ -224,7 +224,7 @@ function MacrosSection({ config, save }) {
             <span className="row-icon"><Icon name={macro.icon || 'Play'} /></span>
             <span className="row-label">{macro.label}</span>
             <span className="row-type">{macro.steps.length} pasos</span>
-            <button className="macro-remove" onClick={() => deleteMacro(i)}>×</button>
+            <button className="macro-remove" aria-label="Eliminar macro" onClick={() => deleteMacro(i)}><X size={14} /></button>
             <div className="macro-steps-detail" style={{display: 'none', width: '100%', flexWrap: 'wrap', gap: 4, marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
               {macro.steps.map((s, j) => <span key={j} className="step-tag" style={{fontSize: 11, padding: '2px 6px', background: 'rgba(100,200,255,0.15)', borderRadius: 4}}>{s.keys} <small style={{opacity:0.5}}>{s.delay}ms</small></span>)}
             </div>
@@ -235,12 +235,12 @@ function MacrosSection({ config, save }) {
 
       <div className="macro-recorder">
         {!recording && recordedSteps.length === 0 && (
-          <button className="btn btn-record" onClick={startRecording}>🔴 Grabar macro</button>
+          <button className="btn btn-record" onClick={startRecording}><Circle size={11} fill="currentColor" /> Grabar macro</button>
         )}
         {recording && (
           <div className="recording-active">
-            <span className="recording-dot">●</span> Grabando... ({recordedSteps.length} pasos) — <small>ESC para parar</small>
-            <button className="btn btn-stop" onClick={stopRecording}>⏹ Parar</button>
+            <span className="recording-dot"><Circle size={10} fill="currentColor" /></span> Grabando... ({recordedSteps.length} pasos) — <small>ESC para parar</small>
+            <button className="btn btn-stop" onClick={stopRecording}><Square size={11} fill="currentColor" /> Parar</button>
             <div className="live-keys" ref={liveRef} style={{maxHeight: 150, overflowY: 'auto', marginTop: 8, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', borderRadius: 6, fontFamily: 'SF Mono, Consolas, monospace', fontSize: 11, lineHeight: '18px'}}>
               {liveKeys.map((lk, i) => (
                 <div key={i} style={{color: lk.event.includes('down') ? '#6ef' : '#f96'}}>
@@ -275,7 +275,7 @@ function AnimationSection({ config, save }) {
 
   return (
     <div className="section">
-      <div className="section-label">🎬 Animaciones</div>
+      <div className="section-label section-label-icon"><Film size={13} /> Animaciones</div>
       <div className="form-grid">
         <div className="form-field">
           <label>Activar</label>
@@ -341,13 +341,13 @@ function PinnedSection({ config, save }) {
 
   return (
     <div className="section">
-      <div className="section-label">📌 Acciones Pinned (siempre visibles — seleccioná de las existentes)</div>
+      <div className="section-label section-label-icon"><Pin size={13} /> Acciones Pinned (siempre visibles — seleccioná de las existentes)</div>
       <div className="actions-table pinned-picker">
         {allActions.map((action, i) => {
           const isPinned = pinnedKeys.has(action._key);
           return (
             <div key={i} className={`action-row ${isPinned ? 'pinned-active' : ''}`} onClick={() => togglePin(action)}>
-              <span className={`pin-check ${isPinned ? 'checked' : ''}`}>{isPinned ? '📌' : '○'}</span>
+              <span className={`pin-check ${isPinned ? 'checked' : ''}`}>{isPinned ? <Pin size={14} fill="currentColor" /> : <Circle size={13} />}</span>
               <span className="row-icon"><Icon name={action.icon} /></span>
               <span className="row-label">{action.label}</span>
               <span className="row-type">{action.type}</span>
@@ -393,7 +393,7 @@ function Settings() {
   };
 
   const addAction = () => {
-    const updated = { ...config, actions: { ...config.actions, [selectedProfile]: [...actions, { label: 'New', icon: '⭐', type: 'shortcut', value: '' }] } };
+    const updated = { ...config, actions: { ...config.actions, [selectedProfile]: [...actions, { label: 'New', icon: 'Star', type: 'shortcut', value: '' }] } };
     save(updated);
     setEditing(actions.length);
   };
@@ -436,7 +436,7 @@ function Settings() {
             <button className="dropdown-cancel" onClick={() => setAddingProfile(false)}>Cancelar</button>
           </div>
         ) : (
-          <button className="sidebar-add" onClick={startAddProfile}>＋ Agregar perfil</button>
+          <button className="sidebar-add" onClick={startAddProfile}><Plus size={13} /> Agregar perfil</button>
         )}
         <div className="sidebar-title" style={{marginTop: 16}}>Herramientas</div>
         <div className="sidebar-item" onClick={() => { setSelectedProfile('__clipboard'); setEditing(null); }}>
@@ -472,10 +472,10 @@ function Settings() {
             {(config.rolProfiles || []).map((name, i) => (
               <span key={name} className="rol-tag">
                 {name}
-                <button className="rol-tag-remove" onClick={() => {
+                <button className="rol-tag-remove" aria-label="Quitar de Rol" onClick={() => {
                   const rp = config.rolProfiles.filter((_, j) => j !== i);
                   save({ ...config, rolProfiles: rp });
-                }}>×</button>
+                }}><X size={13} /></button>
               </span>
             ))}
             <select className="rol-add-select" value="" onChange={(e) => {
@@ -512,7 +512,7 @@ function Settings() {
                   setEditing(null);
                 }}
                 onClick={() => setEditing(editing === i ? null : i)}>
-                <span className="drag-handle">⠿</span>
+                <span className="drag-handle" aria-label="Arrastrar para reordenar"><GripVertical size={14} /></span>
                 <span className="row-icon"><Icon name={action.icon} /></span>
                 <span className="row-label">{action.label}</span>
                 <span className="row-type">{action.type}</span>
@@ -522,7 +522,7 @@ function Settings() {
           </div>
 
           <div className="btn-row">
-            <button className="btn btn-primary" onClick={addAction}>＋ Agregar</button>
+            <button className="btn btn-primary" onClick={addAction}><Plus size={13} /> Agregar</button>
             {selectedProfile !== '_default' && (
               <button className="btn btn-danger delete-profile" onClick={removeProfile}>Eliminar perfil</button>
             )}

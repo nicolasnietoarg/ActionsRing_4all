@@ -31,6 +31,24 @@
           "delay": 0
         }
       ]
+    },
+    {
+      "label": "LAN",
+      "icon": "Play",
+      "steps": [
+        {
+          "keys": "type:Prism",
+          "delay": 0
+        },
+        {
+          "keys": "AltGraph",
+          "delay": 616
+        },
+        {
+          "keys": "type:@007",
+          "delay": 284
+        }
+      ]
     }
   ],
   "rolProfiles": [
