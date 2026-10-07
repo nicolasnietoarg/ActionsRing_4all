@@ -1,26 +1,34 @@
 # Actions Ring
 
-Floating radial action menu for macOS & Windows. Context-aware shortcuts, app profiles, macro recorder, snippets, workflows, clipboard history, and cross-app controls via a customizable bubble ring overlay. Activate with a hotkey, execute actions instantly.
+Menú radial flotante de acciones para macOS y Windows. Atajos según el contexto, perfiles por aplicación, grabador de macros, snippets, workflows, historial de portapapeles y controles entre apps, en un anillo de burbujas configurable. Se abre con un hotkey y ejecuta la acción al instante.
 
 ![Actions Ring](ring.png)
 
-## Platforms
+## Plataformas
 
-| Platform | Folder | Hotkey | Status |
-|----------|--------|--------|--------|
-| macOS (Apple Silicon) | `/` (root) | `Cmd+Shift+Space` | v0.1.0 |
-| Windows (Portable) | `/windows` | `Ctrl+Alt+Space` | v0.4.0 |
+| Plataforma | Carpeta | Hotkey por defecto | Versión |
+|------------|---------|--------------------|---------|
+| Windows | `/windows` | `Ctrl+Alt+Space` | v0.5.0 |
+| macOS (Apple Silicon) | `/` (raíz) | `Cmd+Shift+Space` | v0.1.0 |
 
-## Download
+> El port de Windows va bastante más adelantado. macOS todavía no tiene las correcciones de v0.5.0 — ver `BACKPORT_TO_MACOS.md`.
 
-**Windows:** [Download portable .exe from Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/latest)
+## Descarga
 
-**macOS:** Download `.dmg` from [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/tag/v0.1.0)
+**Windows** — [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/latest):
 
-## Run from Source
+| Archivo | Para qué |
+|---------|----------|
+| `ActionsRing-Setup-<version>.exe` | Instalador. Elegís carpeta, crea accesos directos, se instala solo para tu usuario (sin admin). |
+| `ActionsRing-Portable-<version>.exe` | Portable, sin instalar. Sirve desde un USB. |
 
-### Requirements
-- Node.js 20+ ([download](https://nodejs.org))
+**macOS** — `.dmg` en [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases/tag/v0.1.0).
+
+Ninguno de los dos está firmado: Windows SmartScreen y Gatekeeper van a pedir confirmación la primera vez.
+
+## Correr desde el código
+
+Requiere **Node.js 20+** ([descarga](https://nodejs.org)).
 
 ### Windows
 ```bash
@@ -28,7 +36,7 @@ cd windows
 npm install
 npm run dev
 ```
-Or double-click `windows/run.bat`.
+O doble click en `windows/run.bat`.
 
 ### macOS
 ```bash
@@ -36,146 +44,146 @@ npm install
 npm run dev
 ```
 
-## Features
+## Funcionalidades
 
-### Core
-- **Context-aware profiles** — detects active app, shows relevant actions
-- **Rol system** — access other app profiles without switching context
-- **Clipboard history** — last 20 items, click to paste
-- **Window management** — snap left/right/maximize
-- **Settings UI** — drag & drop reorder, key recorder, Lucide icons throughout, dark theme
+### Base
+- **Perfiles por contexto** — detecta la app al frente y muestra sus acciones (match sin distinguir mayúsculas)
+- **Rol** — acceso a los perfiles de otras apps sin cambiar de ventana
+- **Historial de portapapeles** — últimos 20 items, click para volver a copiar
+- **Gestión de ventanas** — anclar a izquierda/derecha, maximizar
+- **Settings** — reordenar arrastrando, grabador de teclas, íconos Lucide, tema oscuro
 
 ### Macros (Windows v0.4.0+)
-- **Macro recorder** — record keystrokes in real-time with actual delays
-- **Smart text detection** — consecutive characters merged into `type:` steps
-- **Macro bubble** — dedicated ring bubble with expandable fan of saved macros
-- **AltGr support** — special characters (`@`, `#`, etc.) captured correctly
+- **Grabador** — captura las teclas en tiempo real con sus pausas reales
+- **Agrupado de texto** — los caracteres seguidos se juntan en un paso `type:`
+- **Burbuja Macro** — abanico desplegable con las macros guardadas
+- **AltGr y multimedia** — caracteres especiales y teclas de medios
 
-### Pinned Actions (Windows v0.4.0+)
-- Actions that persist across all app profiles
-- Select from existing actions in Settings
-- Visual indicator (cyan border + blue dot)
+### Acciones fijadas (Windows v0.4.0+)
+- Visibles en todos los perfiles, se eligen de las acciones existentes
+- Guardadas por referencia: editar la original actualiza la fijada
+- Indicador visual (borde y punto cian)
 
-### Configurable Animations (Windows v0.4.0+)
-- **Entrance/Exit types:** deck (cards from center), pop (bounce), fade, none
-- **Speed:** 0.3x to 3x multiplier
-- **Stagger:** 10ms to 150ms between bubbles
-- **Toggle:** enable/disable all animations
+### Animaciones configurables (Windows v0.4.0+)
+- **Tipos** — `deck` (cartas desde el centro), `pop` (rebote), `fade`, `none`
+- **Velocidad** — 0.3x a 3x · **Separación** — 10 a 150 ms · **Interruptor general**
 
-### Action Types
+### Tipos de acción
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `shortcut` | Send keystrokes | `Control+Shift+P` / `Command+Shift+P` |
-| `open` | Launch app | `Google Chrome` / `notepad` |
-| `command` | Shell command | `start https://google.com` |
-| `snippet` | Paste text | `Hello {clipboard}` |
-| `macro` | Keystroke sequence | `[{"keys":"Control+A","delay":50}]` |
-| `workflow` | Chain actions | `[{"type":"open","value":"chrome"}]` |
-| `profile` | Navigate to profile | `Spotify` |
+| Tipo | Qué hace | Ejemplo (Windows / macOS) |
+|------|----------|---------------------------|
+| `shortcut` | Envía teclas | `Control+Shift+P` / `Command+Shift+P` |
+| `open` | Abre app, archivo, carpeta o URL | `notepad` / `Google Chrome` |
+| `command` | Comando de shell | `wt -d .` / `screencapture -ic` |
+| `snippet` | Pega texto | `Hola {clipboard}` |
+| `macro` | Secuencia de teclas | `[{"keys":"Control+A","delay":50}]` |
+| `workflow` | Encadena acciones | `[{"type":"open","value":"chrome"}]` |
+| `profile` | Salta a otro perfil | `Spotify` |
 
-### Dynamic Variables
-- `{clipboard}` — current clipboard content
-- `{date}` — current date
-- `{time}` — current time
-- `{datetime}` — ISO timestamp
-- `{app}` — active app when ring was opened
+### Variables
+`{clipboard}` · `{date}` · `{time}` · `{datetime}` · `{app}`
+
+En Windows lo interpolado se sanea según el destino: se codifica si va a una URL y se neutralizan los metacaracteres si va a un comando de shell.
 
 ## Stack
 
-| Component | macOS | Windows |
-|-----------|-------|---------|
+| Componente | macOS | Windows |
+|------------|-------|---------|
 | Runtime | Electron 31 | Electron 31 |
 | UI | React 18 | React 18 |
 | Bundler | esbuild | esbuild |
-| Icons | Lucide React | Lucide React |
-| Keystrokes | osascript (System Events) | Win32 SendInput (koffi FFI) |
-| App detection | NSWorkspace | GetForegroundWindow + GetModuleBaseNameW |
-| Packaging | electron-builder (.dmg) | electron-builder (portable .exe) |
+| Íconos | Lucide React | Lucide React |
+| Teclas | osascript (System Events) | Win32 SendInput (koffi FFI) |
+| Detección de app | NSWorkspace | GetForegroundWindow + GetModuleBaseNameW |
+| Empaquetado | electron-builder (.dmg) | electron-builder (NSIS + portable) |
 
-## Structure
+## Estructura
 
 ```
 ActionsRing_4all/
-├── config/default.json          # macOS config
-├── src/                         # macOS source
+├── config/default.json          # defaults macOS
+├── src/                         # código macOS
 │   ├── main/main.js
 │   ├── renderer/
 │   └── settings/
-├── windows/                     # Windows source (independent)
-│   ├── config/default.json
-│   ├── src/main/main.js         # Win32 API via koffi
-│   ├── src/renderer/
-│   ├── src/settings/
+├── windows/                     # código Windows (independiente)
+│   ├── config/default.json      # defaults que se publican
+│   ├── src/main/
+│   │   ├── main.js              # proceso principal, Win32 vía koffi
+│   │   ├── keys.js              # mapeo de teclas (módulo puro)
+│   │   ├── config-schema.js     # normalización de config (módulo puro)
+│   │   ├── variables.js         # variables y saneo (módulo puro)
+│   │   └── preload-*.js         # un puente por ventana
+│   ├── src/renderer/            # UI del anillo
+│   ├── src/settings/            # UI de Settings
+│   ├── test/run-tests.js        # tests sin dependencias
 │   ├── CHANGES.md
 │   └── README.md
-├── BACKPORT_TO_MACOS.md         # Guide to port Windows features to macOS
-└── .github/workflows/           # CI: builds portable .exe on tag push
+├── BACKPORT_TO_MACOS.md         # guía para portar las features de Windows
+└── .github/workflows/           # CI: instalador + portable en cada tag
 ```
 
-## Building
+## Build
 
-### Portable .exe (automatic)
+### Automático (recomendado)
 
-The portable exe is built automatically by GitHub Actions when you push a tag:
+El CI construye instalador y portable al pushear un tag:
 
 ```bash
-git tag v0.4.1
-git push origin v0.4.1
+git tag v0.5.1
+git push origin v0.5.1
 ```
 
-The `.exe` appears in [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases) within ~3 minutes.
+Los `.exe` aparecen en [Releases](https://github.com/nicolasnietoarg/ActionsRing_4all/releases) en ~3 minutos. También se puede disparar a mano desde la pestaña **Actions** (sin crear tag): deja los `.exe` como artefactos del run.
 
-### Build locally
+### Local (desde Windows)
 
 ```bash
 cd windows
-npm run dist        # portable .exe
-npm run dist:nsis   # installer .exe (NSIS)
+npm run dist           # instalador NSIS + portable
+npm run dist:nsis      # solo el instalador
+npm run dist:portable  # solo el portable
 ```
 
-### MSI installer (planned)
+Salida en `windows/dist/`.
 
-MSI packaging for enterprise deployment (Intune/GPO/SCCM) is planned. Requires:
-- WiX Toolset 3.x on the build machine
-- Moving writable config from `process.execPath` to `%APPDATA%` (already identified)
-- Code signing certificate (recommended to avoid SmartScreen warnings)
+## Configuración
 
-See roadmap below.
+**Windows:** `%APPDATA%\Actions Ring\config.json`. Se mantiene al actualizar y al desinstalar. Si venís de una versión anterior, la primera ejecución migra el archivo que estaba junto al `.exe`. Si el JSON queda corrupto, se respalda y la app arranca con los defaults.
 
-## Security
+**macOS:** todavía `config/default.json` dentro de la app (pendiente de migrar).
 
-### Config file
+El `config/default.json` del repositorio son **solo los defaults publicados**: la configuración personal nunca se escribe ahí, así que no hay riesgo de commitear macros propias.
 
-The `config/default.json` file is **user-specific** and may contain personal macros. Never commit macros that contain passwords, credentials, or sensitive text.
+> ⚠️ Las macros se guardan en texto plano. No grabes contraseñas ni credenciales en una macro: quedan legibles para cualquiera con acceso a tu perfil de usuario.
 
-Best practice: keep `config/default.json` for the clean defaults you ship, and use `electron-store` or `%APPDATA%` for the user's customized config at runtime.
+## Permisos en macOS
 
-### Command injection
-
-Action type `command` interpolates `{clipboard}` into shell commands. Be aware that clipboard content is untrusted input. Use `shell.openExternal()` for URLs when possible.
-
-## macOS Permissions
-
-**System Settings → Privacy & Security → Accessibility:**
-- Add `Electron.app` (dev) or `Actions Ring.app` (production)
-
-Required for `shortcut` type actions. `command` and `open` work without permissions.
+**Ajustes del sistema → Privacidad y seguridad → Accesibilidad:** agregar `Electron.app` (desarrollo) o `Actions Ring.app` (producción). Hace falta para las acciones de tipo `shortcut`; `command` y `open` funcionan sin permisos.
 
 ## Roadmap
 
-| Feature | Status | Notes |
+| Feature | Estado | Notas |
 |---------|--------|-------|
-| MSI installer | 🔜 Planned | Enterprise deployment via WiX |
-| Config in `%APPDATA%` | 🔜 Planned | Required for MSI, also improves portable |
-| Unified codebase (macOS/Windows) | 🔜 Planned | Shared renderer + platform adapters |
-| Auto-update (electron-updater) | 💡 Future | |
-| Command injection hardening | 💡 Future | Escape clipboard variables |
+| Instalador Windows | ✅ Hecho | NSIS, por usuario, sin admin (v0.5.0) |
+| Config en `%APPDATA%` | ✅ Hecho | Con migración automática (v0.5.0) |
+| Tests | ✅ Hecho | 40 casos sobre la lógica del main (v0.5.0) |
+| Backport de v0.5.0 a macOS | 🔜 Pendiente | Mismos bugs presentes en el código de macOS |
+| Código unificado (macOS/Windows) | 🔜 Pendiente | Renderer compartido + adaptadores por plataforma |
+| Firma de código | 💡 A futuro | Evita los avisos de SmartScreen |
+| Auto-update (electron-updater) | 💡 A futuro | |
+| MSI para despliegue corporativo | 💡 A futuro | Intune/GPO/SCCM, requiere WiX |
 
-## Contributing
+## Contribuir
 
-See `BACKPORT_TO_MACOS.md` for porting Windows v0.4.0 features to macOS.
+Ver `BACKPORT_TO_MACOS.md` para portar las features de Windows a macOS.
 
-## License
+Antes de un commit en `windows/`:
+
+```bash
+cd windows && npm run verify
+```
+
+## Licencia
 
 MIT

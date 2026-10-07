@@ -17,6 +17,35 @@
       position: relative; width: 700px; height: 700px;
     }
 
+    /* Capa de cierre: cubre toda la ventana por detrás de las burbujas,
+       para que un click en el vacío cierre el anillo en lugar de perderse. */
+    .ring-backdrop {
+      position: absolute; inset: 0;
+      background: transparent;
+      z-index: 1;
+      cursor: default;
+    }
+
+    /* Aviso cuando el perfil activo no tiene ninguna acción configurada */
+    .ring-empty {
+      position: absolute;
+      left: 50%; top: calc(50% + 86px);
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: rgba(15,25,35,0.94);
+      border: 1px solid rgba(38,186,142,0.2);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+      color: #e2e8f0;
+      font-size: 11px;
+      white-space: nowrap;
+      text-align: center;
+    }
+    .ring-empty strong { color: #26ba8e; font-weight: 600; }
+    .ring-empty small { font-size: 9px; color: rgba(255,255,255,0.45); }
+
     /* Center button — Kugo teal */
     .center-btn {
       position: absolute;

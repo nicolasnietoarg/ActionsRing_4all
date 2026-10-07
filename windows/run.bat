@@ -1,36 +1,38 @@
 @echo off
 title Actions Ring
 echo ========================================
-echo   Actions Ring - Portable Launcher
+echo   Actions Ring - Launcher de desarrollo
 echo ========================================
 echo.
 
-:: Check if node_modules exists
+:: Dependencias
 if not exist "node_modules" (
     echo [*] Primera ejecucion - instalando dependencias...
     echo [*] Esto puede tardar unos minutos...
     npm install
     if errorlevel 1 (
         echo [!] Error instalando dependencias.
-        echo [!] Asegurate de tener Node.js instalado: https://nodejs.org
+        echo [!] Asegurate de tener Node.js 20+ instalado: https://nodejs.org
         pause
         exit /b 1
     )
     echo.
 )
 
-:: Build
-echo [*] Compilando...
-call npm run build
+:: Sintaxis + tests + bundles
+echo [*] Verificando y compilando...
+call npm run verify
 if errorlevel 1 (
-    echo [!] Error en la compilacion.
+    echo [!] Fallo la verificacion. No se inicia la app.
     pause
     exit /b 1
 )
 
-:: Run
+echo.
 echo [*] Iniciando Actions Ring...
-echo [*] Hotkey: Ctrl+Shift+Space
-echo [*] Cerrar: Escape o click derecho en tray ^> Quit
+echo [*] Hotkey por defecto: Ctrl+Alt+Space  (se cambia en Settings)
+echo [*] Cerrar el anillo: Escape, click afuera, o click en el centro
+echo [*] Salir de la app: click derecho en el icono del tray ^> Salir
+echo [*] Config: %%APPDATA%%\Actions Ring\config.json
 echo.
 npx electron .

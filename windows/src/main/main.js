@@ -1,26 +1,27 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, nativeTheme, clipboard } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, Tray, Menu, nativeImage, clipboard, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const koffi = require('koffi');
+
+const keys = require('./keys');
+const schema = require('./config-schema');
+const vars = require('./variables');
+
+// El nombre debe fijarse ANTES de resolver app.getPath('userData'),
+// para que dev y empaquetado compartan la misma carpeta de configuración.
+app.setName('Actions Ring');
 
 // --- Win32 API via koffi (sin PowerShell, sin execSync) ---
 const user32 = koffi.load('user32.dll');
 const kernel32 = koffi.load('kernel32.dll');
 const psapi = koffi.load('psapi.dll');
 
-// Tipos
 const HWND = koffi.pointer('HWND', koffi.opaque());
 const HANDLE = koffi.pointer('HANDLE', koffi.opaque());
 const DWORD = koffi.alias('DWORD', 'uint32');
 const WNDENUMPROC = koffi.proto('WNDENUMPROC', 'bool', [HWND, 'intptr']);
 
-// Constantes para SendInput
-const INPUT_KEYBOARD = 1;
-const KEYEVENTF_KEYUP = 0x0002;
-const KEYEVENTF_EXTENDEDKEY = 0x0001;
-
-// Funciones Win32
 const GetForegroundWindow = user32.func('GetForegroundWindow', HWND, []);
 const GetWindowThreadProcessId = user32.func('GetWindowThreadProcessId', DWORD, [HWND, koffi.out(koffi.pointer('uint32'))]);
 const SetForegroundWindow = user32.func('SetForegroundWindow', 'bool', [HWND]);
@@ -30,7 +31,6 @@ const GetModuleBaseNameW = psapi.func('GetModuleBaseNameW', DWORD, [HANDLE, 'voi
 const SendInput = user32.func('SendInput', 'uint32', ['uint32', 'void *', 'int32']);
 const EnumWindows = user32.func('EnumWindows', 'bool', [koffi.pointer(WNDENUMPROC), 'intptr']);
 const IsWindowVisible = user32.func('IsWindowVisible', 'bool', [HWND]);
-const GetWindowTextW = user32.func('GetWindowTextW', 'int32', [HWND, 'uint16 *', 'int32']);
 const GetWindowTextLengthW = user32.func('GetWindowTextLengthW', 'int32', [HWND]);
 const GetCurrentThreadId = kernel32.func('GetCurrentThreadId', DWORD, []);
 const AttachThreadInput = user32.func('AttachThreadInput', 'bool', [DWORD, DWORD, 'bool']);
@@ -41,100 +41,173 @@ const PROCESS_VM_READ = 0x0010;
 
 // --- Estado global ---
 let overlay = null;
-
-// --- Restaurar foco a la ventana anterior con AttachThreadInput ---
-function restoreFocus() {
-  if (!lastActiveHwnd) return;
-  try {
-    const pidBuf = [0];
-    GetWindowThreadProcessId(lastActiveHwnd, pidBuf);
-    const targetThread = pidBuf[0];
-    const ourThread = GetCurrentThreadId();
-    if (targetThread && targetThread !== ourThread) {
-      AttachThreadInput(ourThread, targetThread, true);
-      SetForegroundWindow(lastActiveHwnd);
-      SetFocus(lastActiveHwnd);
-      AttachThreadInput(ourThread, targetThread, false);
-    } else {
-      SetForegroundWindow(lastActiveHwnd);
-    }
-  } catch {
-    try { SetForegroundWindow(lastActiveHwnd); } catch {}
-  }
-}
-
-// --- Focus a window by app name (for Rol actions) ---
-function focusAppWindow(appName) {
-  let targetHwnd = null;
-  const cb = koffi.register((hwnd, _lParam) => {
-    if (targetHwnd) return 1;
-    if (!IsWindowVisible(hwnd)) return 1;
-    const textLen = GetWindowTextLengthW(hwnd);
-    if (textLen === 0) return 1;
-    const pidBuf = [0];
-    GetWindowThreadProcessId(hwnd, pidBuf);
-    const pid = pidBuf[0];
-    if (!pid) return 1;
-    const hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
-    if (!hProcess) return 1;
-    const nameBuf = Buffer.alloc(520);
-    const len = GetModuleBaseNameW(hProcess, null, nameBuf, 260);
-    CloseHandle(hProcess);
-    if (len > 0) {
-      const name = nameBuf.toString('utf16le', 0, len * 2).replace(/\.exe$/i, '');
-      if (name.toLowerCase() === appName.toLowerCase()) targetHwnd = hwnd;
-    }
-    return 1;
-  }, koffi.pointer(WNDENUMPROC));
-  try { EnumWindows(cb, 0); } catch {}
-  koffi.unregister(cb);
-  if (targetHwnd) {
-    try {
-      const pidBuf = [0];
-      GetWindowThreadProcessId(targetHwnd, pidBuf);
-      const targetThread = pidBuf[0];
-      const ourThread = GetCurrentThreadId();
-      if (targetThread && targetThread !== ourThread) {
-        AttachThreadInput(ourThread, targetThread, true);
-        SetForegroundWindow(targetHwnd);
-        SetFocus(targetHwnd);
-        AttachThreadInput(ourThread, targetThread, false);
-      } else {
-        SetForegroundWindow(targetHwnd);
-      }
-    } catch { try { SetForegroundWindow(targetHwnd); } catch {} }
-  }
-  return !!targetHwnd;
-}
 let settingsWin = null;
 let tray = null;
 let config = null;
 let lastActiveApp = null;
 let lastActiveHwnd = null;
 let clipboardHistory = [];
+let clipboardTimer = null;
+let activeHotkey = null;
+let recordingActive = false;
+let overlayShownAt = 0;
+let overlayReady = false;
+let pendingShow = false;
 
-const configPath = app.isPackaged
-  ? path.join(process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath), 'config', 'default.json')
-  : path.join(__dirname, '../../config/default.json');
+const MAX_CLIPBOARD_HISTORY = 20;
+
+const DEFAULT_PROFILE_ICONS = {
+  Spotify: 'Music', chrome: 'Globe', ChatGPT: 'Sparkles', msedge: 'Globe', OUTLOOK: 'Mail',
+  notepad: 'StickyNote', WhatsApp: 'MessageCircle', Telegram: 'Send', explorer: 'Folder', Code: 'Code',
+};
+
+// ---------------------------------------------------------------------------
+// Configuración: vive en %APPDATA%\Actions Ring\config.json
+// Antes se escribía junto al .exe, lo que hacía crashear la app si se
+// ejecutaba desde un USB protegido o desde Program Files.
+// ---------------------------------------------------------------------------
+const CONFIG_DIR = app.getPath('userData');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+function bundledConfigPath() {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'config', 'default.json') : null,
+    path.join(__dirname, '../../config/default.json'),
+  ];
+  return candidates.find((p) => p && fs.existsSync(p)) || null;
+}
+
+// Ubicaciones de versiones anteriores, para migrar la config del usuario.
+function legacyConfigPaths() {
+  const list = [];
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    list.push(path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'config', 'default.json'));
+  }
+  list.push(path.join(path.dirname(process.execPath), 'config', 'default.json'));
+  list.push(path.join(__dirname, '../../config/default.json'));
+  return list;
+}
 
 function loadConfig() {
-  // In portable mode, copy default config next to .exe if not present
-  if (app.isPackaged && !fs.existsSync(configPath)) {
-    const dir = path.dirname(configPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const bundledConfig = path.join(process.resourcesPath, 'config', 'default.json');
-    if (fs.existsSync(bundledConfig)) fs.copyFileSync(bundledConfig, configPath);
+  try { fs.mkdirSync(CONFIG_DIR, { recursive: true }); } catch { /* ignorado */ }
+
+  if (!fs.existsSync(CONFIG_FILE)) {
+    const legacy = legacyConfigPaths().find((p) => { try { return fs.existsSync(p); } catch { return false; } });
+    if (legacy) {
+      try { fs.copyFileSync(legacy, CONFIG_FILE); console.log(`[config] migrado desde ${legacy}`); }
+      catch (e) { console.error('[config] no se pudo migrar:', e.message); }
+    }
   }
-  config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+
+  const sources = [CONFIG_FILE, bundledConfigPath()].filter(Boolean);
+  for (const src of sources) {
+    let raw;
+    try { raw = fs.readFileSync(src, 'utf-8'); } catch { continue; }
+    try {
+      const { config: parsed, changed } = schema.normalizeConfig(JSON.parse(raw));
+      config = parsed;
+      if (changed || src !== CONFIG_FILE) saveConfig(config);
+      return config;
+    } catch (e) {
+      // Un JSON corrupto dejaba la app sin arrancar y sin forma de recuperarse.
+      console.error(`[config] JSON inválido en ${src}: ${e.message}`);
+      if (src === CONFIG_FILE) {
+        const backup = `${CONFIG_FILE}.bad-${Date.now()}`;
+        try { fs.renameSync(CONFIG_FILE, backup); console.error(`[config] respaldado como ${backup}`); } catch { /* ignorado */ }
+      }
+    }
+  }
+
+  console.error('[config] usando defaults embebidos');
+  config = schema.normalizeConfig(JSON.parse(JSON.stringify(schema.DEFAULT_CONFIG))).config;
+  saveConfig(config);
   return config;
 }
 
+// Escritura atómica: se escribe un .tmp y se renombra, así un corte a mitad
+// de camino no deja el archivo corrupto.
 function saveConfig(newConfig) {
-  config = newConfig;
-  fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 2));
+  const { config: normalized } = schema.normalizeConfig(newConfig);
+  config = normalized;
+  const tmp = `${CONFIG_FILE}.tmp`;
+  try {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
+    fs.renameSync(tmp, CONFIG_FILE);
+  } catch (e) {
+    console.error('[config] error al guardar:', e.message);
+    try { fs.unlinkSync(tmp); } catch { /* ignorado */ }
+  }
+  return config;
 }
 
-// --- Obtener app activa via Win32 (instantáneo, ~0ms) ---
+// ---------------------------------------------------------------------------
+// Foco de ventanas
+// ---------------------------------------------------------------------------
+function focusHwnd(hwnd) {
+  if (!hwnd) return false;
+  try {
+    const pidBuf = [0];
+    GetWindowThreadProcessId(hwnd, pidBuf);
+    const targetThread = pidBuf[0];
+    const ourThread = GetCurrentThreadId();
+    if (targetThread && targetThread !== ourThread) {
+      AttachThreadInput(ourThread, targetThread, true);
+      SetForegroundWindow(hwnd);
+      SetFocus(hwnd);
+      AttachThreadInput(ourThread, targetThread, false);
+    } else {
+      SetForegroundWindow(hwnd);
+    }
+    return true;
+  } catch {
+    try { SetForegroundWindow(hwnd); return true; } catch { return false; }
+  }
+}
+
+function restoreFocus() {
+  if (lastActiveHwnd) focusHwnd(lastActiveHwnd);
+}
+
+// Recorre las ventanas visibles con título y llama a fn(hwnd, processName).
+// Devolver true desde fn corta la enumeración.
+function forEachWindow(fn) {
+  let stop = false;
+  const cb = koffi.register((hwnd) => {
+    if (stop) return 0; // devolver false corta la enumeración
+    try {
+      if (!IsWindowVisible(hwnd)) return 1;
+      if (GetWindowTextLengthW(hwnd) === 0) return 1;
+      const pidBuf = [0];
+      GetWindowThreadProcessId(hwnd, pidBuf);
+      const pid = pidBuf[0];
+      if (!pid) return 1;
+      const hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
+      if (!hProcess) return 1;
+      const nameBuf = Buffer.alloc(520); // 260 chars * 2 bytes (UTF-16)
+      const len = GetModuleBaseNameW(hProcess, null, nameBuf, 260);
+      CloseHandle(hProcess);
+      if (len > 0) {
+        const name = nameBuf.toString('utf16le', 0, len * 2).replace(/\.exe$/i, '');
+        if (fn(hwnd, name) === true) { stop = true; return 0; }
+      }
+    } catch { /* ventana inaccesible, seguir */ }
+    return 1;
+  }, koffi.pointer(WNDENUMPROC));
+  try { EnumWindows(cb, 0); } finally { koffi.unregister(cb); }
+}
+
+function focusAppWindow(appName) {
+  let target = null;
+  const wanted = String(appName || '').toLowerCase();
+  forEachWindow((hwnd, name) => {
+    if (name.toLowerCase() === wanted) { target = hwnd; return true; }
+    return false;
+  });
+  if (!target) return false;
+  return focusHwnd(target);
+}
+
 function getActiveApp() {
   try {
     const hwnd = GetForegroundWindow();
@@ -149,412 +222,484 @@ function getActiveApp() {
     const hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
     if (!hProcess) return '_default';
 
-    const nameBuf = Buffer.alloc(520); // 260 * 2 bytes (UTF-16)
+    const nameBuf = Buffer.alloc(520);
     const len = GetModuleBaseNameW(hProcess, null, nameBuf, 260);
     CloseHandle(hProcess);
 
     if (len === 0) return '_default';
-    const name = nameBuf.toString('utf16le', 0, len * 2);
-    return name.replace(/\.exe$/i, '');
+    return nameBuf.toString('utf16le', 0, len * 2).replace(/\.exe$/i, '');
   } catch {
     return '_default';
   }
 }
 
-// --- Obtener lista de apps con ventana visible ---
 function getRunningApps() {
   const apps = new Set();
-  const cb = koffi.register((hwnd, _lParam) => {
-    if (!IsWindowVisible(hwnd)) return 1;
-    const textLen = GetWindowTextLengthW(hwnd);
-    if (textLen === 0) return 1;
-
-    const pidBuf = [0];
-    GetWindowThreadProcessId(hwnd, pidBuf);
-    const pid = pidBuf[0];
-    if (!pid) return 1;
-
-    const hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid);
-    if (!hProcess) return 1;
-
-    const nameBuf = Buffer.alloc(520);
-    const len = GetModuleBaseNameW(hProcess, null, nameBuf, 260);
-    CloseHandle(hProcess);
-
-    if (len > 0) {
-      const name = nameBuf.toString('utf16le', 0, len * 2).replace(/\.exe$/i, '');
-      apps.add(name);
-    }
-    return 1;
-  }, koffi.pointer(WNDENUMPROC));
-
-  try { EnumWindows(cb, 0); } catch {}
-  koffi.unregister(cb);
-  return [...apps].sort();
+  forEachWindow((_hwnd, name) => { apps.add(name); return false; });
+  return [...apps].sort((a, b) => a.localeCompare(b));
 }
 
-// --- Enviar teclas via SendInput (Win32 nativo, instantáneo) ---
-const VK_MAP = {
-  'a': 0x41, 'b': 0x42, 'c': 0x43, 'd': 0x44, 'e': 0x45, 'f': 0x46, 'g': 0x47,
-  'h': 0x48, 'i': 0x49, 'j': 0x4A, 'k': 0x4B, 'l': 0x4C, 'm': 0x4D, 'n': 0x4E,
-  'o': 0x4F, 'p': 0x50, 'q': 0x51, 'r': 0x52, 's': 0x53, 't': 0x54, 'u': 0x55,
-  'v': 0x56, 'w': 0x57, 'x': 0x58, 'y': 0x59, 'z': 0x5A,
-  '0': 0x30, '1': 0x31, '2': 0x32, '3': 0x33, '4': 0x34,
-  '5': 0x35, '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39,
-  'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73, 'f5': 0x74, 'f6': 0x75,
-  'f7': 0x76, 'f8': 0x77, 'f9': 0x78, 'f10': 0x79, 'f11': 0x7A, 'f12': 0x7B,
-  'enter': 0x0D, 'return': 0x0D, 'tab': 0x09, 'escape': 0x1B, 'esc': 0x1B,
-  'space': 0x20, 'backspace': 0x08, 'delete': 0x2E,
-  'arrowup': 0x26, 'arrowdown': 0x28, 'arrowleft': 0x25, 'arrowright': 0x27,
-  'up': 0x26, 'down': 0x28, 'left': 0x25, 'right': 0x27,
-  'home': 0x24, 'end': 0x23, 'pageup': 0x21, 'pagedown': 0x22,
-  'insert': 0x2D, 'printscreen': 0x2C,
-  '`': 0xC0, '-': 0xBD, '=': 0xBB, '[': 0xDB, ']': 0xDD, '\\': 0xDC,
-  ';': 0xBA, "'": 0xDE, ',': 0xBC, '.': 0xBE, '/': 0xBF,
-  'control': 0xA2, 'ctrl': 0xA2, 'shift': 0xA0, 'alt': 0xA4, 'win': 0x5B,
-};
-
-// Teclas extendidas que requieren flag KEYEVENTF_EXTENDEDKEY
-const EXTENDED_KEYS = new Set([0x25, 0x26, 0x27, 0x28, 0x24, 0x23, 0x21, 0x22, 0x2D, 0x2E, 0x5B]);
-
-function sendKeys(keys) {
-  const parts = keys.split('+').map(k => k.trim().toLowerCase());
-  const mainKey = parts.pop();
-  const modifiers = parts;
-
-  const keyEvents = [];
-
-  // Presionar modificadores
-  for (const mod of modifiers) {
-    const vk = VK_MAP[mod] || 0;
-    if (vk) keyEvents.push({ vk, flags: 0 });
-  }
-
-  // Presionar tecla principal
-  const mainVk = VK_MAP[mainKey] || 0;
-  if (mainVk) keyEvents.push({ vk: mainVk, flags: 0 });
-
-  // Soltar tecla principal
-  if (mainVk) keyEvents.push({ vk: mainVk, flags: KEYEVENTF_KEYUP });
-
-  // Soltar modificadores (orden inverso)
-  for (const mod of [...modifiers].reverse()) {
-    const vk = VK_MAP[mod] || 0;
-    if (vk) keyEvents.push({ vk, flags: KEYEVENTF_KEYUP });
-  }
-
-  if (keyEvents.length === 0) return;
-
-  // Cada INPUT struct: 4 (type) + 2 (wVk) + 2 (wScan) + 4 (dwFlags) + 4 (time) + 8 (dwExtraInfo) + padding = 40 bytes en x64
-  const INPUT_SIZE = 40;
-  const count = keyEvents.length;
-  const buf = Buffer.alloc(INPUT_SIZE * count);
-
-  for (let i = 0; i < count; i++) {
-    const offset = i * INPUT_SIZE;
-    let flags = keyEvents[i].flags;
-    if (EXTENDED_KEYS.has(keyEvents[i].vk)) flags |= KEYEVENTF_EXTENDEDKEY;
-
-    buf.writeUInt32LE(INPUT_KEYBOARD, offset);       // type
-    buf.writeUInt16LE(keyEvents[i].vk, offset + 8);  // wVk (offset 8 en x64 por alignment)
-    buf.writeUInt16LE(0, offset + 10);               // wScan
-    buf.writeUInt32LE(flags, offset + 12);           // dwFlags
-    buf.writeUInt32LE(0, offset + 16);               // time
-    buf.writeBigUInt64LE(0n, offset + 20);           // dwExtraInfo (uintptr = 8 bytes en x64)
-  }
-
+// ---------------------------------------------------------------------------
+// Envío de teclas
+// ---------------------------------------------------------------------------
+function dispatchInputs(events) {
+  if (!events.length) return;
+  const buf = keys.encodeInputs(events);
   try {
-    SendInput(count, buf, INPUT_SIZE);
+    const sent = SendInput(events.length, buf, keys.INPUT_SIZE);
+    if (sent !== events.length) console.error(`[sendKeys] SendInput envió ${sent}/${events.length} eventos`);
   } catch (e) {
-    console.error('SendInput error:', e.message);
+    console.error('[sendKeys] SendInput error:', e.message);
   }
 }
 
-function makeKeyInput() {} // no longer needed
+function sendKeys(combo) {
+  const { events, missing } = keys.buildComboEvents(combo);
+  if (missing.length) {
+    console.error(`[sendKeys] tecla sin mapeo, paso ignorado: "${combo}" (${missing.join(', ')})`);
+    return;
+  }
+  dispatchInputs(events);
+}
 
-// --- Type text character by character via SendInput ---
 function typeText(text) {
-  const INPUT_SIZE = 40;
-  const KEYEVENTF_UNICODE = 0x0004;
-  const events = [];
-  for (const char of text) {
-    const code = char.charCodeAt(0);
-    events.push({ scan: code, flags: KEYEVENTF_UNICODE });
-    events.push({ scan: code, flags: KEYEVENTF_UNICODE | KEYEVENTF_KEYUP });
-  }
-  const buf = Buffer.alloc(INPUT_SIZE * events.length);
-  for (let i = 0; i < events.length; i++) {
-    const offset = i * INPUT_SIZE;
-    buf.writeUInt32LE(INPUT_KEYBOARD, offset);
-    buf.writeUInt16LE(0, offset + 8);                    // wVk = 0 for unicode
-    buf.writeUInt16LE(events[i].scan, offset + 10);      // wScan = unicode char
-    buf.writeUInt32LE(events[i].flags, offset + 12);     // dwFlags
-    buf.writeUInt32LE(0, offset + 16);
-    buf.writeBigUInt64LE(0n, offset + 20);
-  }
-  try { SendInput(events.length, buf, INPUT_SIZE); } catch (e) { console.error('typeText error:', e.message); }
+  dispatchInputs(keys.buildTextEvents(text));
 }
 
-// --- Execute macro steps sequentially with delays ---
-function executeMacro(steps) {
-  let delay = 0;
-  for (const step of steps) {
-    const d = step.delay || 50;
-    setTimeout(() => {
-      const keys = step.keys || '';
-      if (keys.startsWith('type:')) {
-        typeText(expandVariables(keys.slice(5)));
-      } else {
-        sendKeys(keys);
-      }
-    }, delay);
-    delay += d;
-  }
-}
-
-// --- Variable expansion ---
-function expandVariables(value) {
+function currentVars() {
   const now = new Date();
-  return value
-    .replace(/\{clipboard\}/g, clipboard.readText())
-    .replace(/\{date\}/g, now.toLocaleDateString())
-    .replace(/\{time\}/g, now.toLocaleTimeString())
-    .replace(/\{datetime\}/g, now.toISOString())
-    .replace(/\{app\}/g, lastActiveApp || '');
+  let clip = '';
+  try { clip = clipboard.readText(); } catch { /* ignorado */ }
+  return {
+    clipboard: clip,
+    date: now.toLocaleDateString(),
+    time: now.toLocaleTimeString(),
+    datetime: now.toISOString(),
+    app: lastActiveApp || '',
+  };
 }
 
-// --- Clipboard history ---
+function executeMacro(steps) {
+  for (const step of vars.scheduleMacro(steps)) {
+    setTimeout(() => {
+      if (step.keys.startsWith('type:')) typeText(vars.expandVariables(step.keys.slice(5), currentVars(), 'raw'));
+      else sendKeys(step.keys);
+    }, step.at);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Historial de portapapeles
+// ---------------------------------------------------------------------------
 let lastClipText = '';
+
 function watchClipboard() {
-  setInterval(() => {
-    const text = clipboard.readText();
-    if (text && text !== lastClipText) {
-      lastClipText = text;
-      clipboardHistory.unshift(text);
-      if (clipboardHistory.length > 20) clipboardHistory.pop();
-    }
+  if (clipboardTimer) clearInterval(clipboardTimer);
+  clipboardTimer = setInterval(() => {
+    let text = '';
+    try { text = clipboard.readText(); } catch { return; }
+    if (!text || text === lastClipText) return;
+    lastClipText = text;
+    clipboardHistory.unshift(text);
+    if (clipboardHistory.length > MAX_CLIPBOARD_HISTORY) clipboardHistory.pop();
   }, 1000);
 }
 
-// --- Overlay ---
+// ---------------------------------------------------------------------------
+// Ventanas
+// ---------------------------------------------------------------------------
 function createOverlay() {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   overlay = new BrowserWindow({
-    width: 700, height: 700,
-    x: Math.round((width - 700) / 2), y: Math.round((height - 700) / 2),
-    frame: false, alwaysOnTop: true,
-    skipTaskbar: true, resizable: false,
-    backgroundColor: '#00000000', transparent: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
+    width: 700,
+    height: 700,
+    show: false,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
+    backgroundColor: '#00000000',
+    transparent: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-ring.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   });
+  overlay.setAlwaysOnTop(true, 'screen-saver');
   overlay.setVisibleOnAllWorkspaces(true);
   overlay.loadFile(path.join(__dirname, '../renderer/index.html'));
-  overlay.hide();
+
+  // Red de seguridad por si el handler de React no corre.
+  overlay.webContents.on('before-input-event', (_event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') hideOverlay();
+  });
+
+  // Si el usuario pasa a otra ventana, el anillo no debe quedar colgado arriba.
+  overlay.on('blur', () => {
+    if (Date.now() - overlayShownAt < 400) return; // ignorar el blur de la propia apertura
+    hideOverlay();
+  });
 }
 
 function openSettings() {
-  if (settingsWin) { settingsWin.focus(); return; }
+  if (settingsWin && !settingsWin.isDestroyed()) { settingsWin.show(); settingsWin.focus(); return; }
   settingsWin = new BrowserWindow({
-    width: 760, height: 560,
-    title: 'Actions Ring 4All',
+    width: 800,
+    height: 620,
+    minWidth: 640,
+    minHeight: 480,
+    title: 'Actions Ring',
     icon: path.join(__dirname, '../../icon.png'),
     backgroundColor: '#0f1923',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-settings.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   });
+  settingsWin.setMenuBarVisibility(false);
   settingsWin.loadFile(path.join(__dirname, '../settings/index.html'));
-  settingsWin.on('closed', () => { settingsWin = null; });
+  settingsWin.on('closed', () => {
+    settingsWin = null;
+    // Si se cerró en medio de una grabación, el hotkey quedaba desregistrado.
+    if (recordingActive) { recordingActive = false; registerHotkey(config.hotkey); updateTrayTooltip(); }
+  });
 }
 
-const profileIcons = { 'Spotify': 'Music', 'chrome': 'Globe', 'ChatGPT': 'Sparkles', 'msedge': 'Globe', 'OUTLOOK': 'Mail', 'notepad': 'StickyNote', 'WhatsApp': 'MessageCircle', 'Telegram': 'Send', 'explorer': 'Folder', 'Code': 'Code' };
+function profileIconFor(name) {
+  const custom = (config && config.profileIcons) || {};
+  return custom[name] || DEFAULT_PROFILE_ICONS[name] || 'AppWindow';
+}
 
-function toggleOverlay() {
-  console.log('[toggleOverlay] called, overlay exists:', !!overlay);
-  if (!overlay) return;
-  if (overlay.isVisible()) { overlay.hide(); return; }
+function positionOverlayAtCursor() {
+  const cursor = screen.getCursorScreenPoint();
+  const area = screen.getDisplayNearestPoint(cursor).workArea;
+  const [w, h] = overlay.getSize();
+  // Antes se posicionaba sin acotar: en los bordes o en un monitor
+  // secundario el anillo quedaba cortado fuera de la pantalla.
+  const clamp = (pos, min, size, total) => (
+    total < size
+      ? Math.round(min + (total - size) / 2)
+      : Math.round(Math.min(Math.max(pos, min), min + total - size))
+  );
+  overlay.setPosition(
+    clamp(cursor.x - w / 2, area.x, w, area.width),
+    clamp(cursor.y - h / 2, area.y, h, area.height),
+  );
+}
+
+function hideOverlay() {
+  if (!overlay || overlay.isDestroyed()) return;
+  // Escape se registra solo mientras el anillo está abierto: registrarlo de
+  // forma permanente lo secuestraba para todo el sistema operativo.
+  try { globalShortcut.unregister('Escape'); } catch { /* ignorado */ }
+  if (overlay.isVisible()) overlay.hide();
+}
+
+function showOverlay() {
+  // Si el renderer todavía no cargó, el mensaje se perdería y quedaría una
+  // ventana transparente en blanco. Se difiere hasta que avise que está listo.
+  if (!overlayReady) { pendingShow = true; return; }
+
   const activeApp = getActiveApp();
   lastActiveApp = activeApp;
-  console.log('[toggleOverlay] activeApp:', activeApp);
-  const profileActions = config.actions[activeApp] || config.actions._default;
-  const pinnedActions = (config.pinnedActions || []).map(a => ({ ...a, _pinned: true }));
-  // Merge: pinned first, then profile actions (avoid duplicates by label)
-  const pinnedLabels = new Set(pinnedActions.map(a => a.label));
-  const actions = [...pinnedActions, ...profileActions.filter(a => !pinnedLabels.has(a.label))];
-  console.log('[toggleOverlay] actions count:', actions.length, '(pinned:', pinnedActions.length, ')');
-  const rolProfiles = (config.rolProfiles || []).map(name => ({
-    name, icon: profileIcons[name] || 'AppWindow',
-    actions: (config.actions[name] || []).slice(0, 6),
+
+  const rolProfiles = (config.rolProfiles || []).map((name) => ({
+    name,
+    icon: profileIconFor(name),
+    actions: schema.profileActionsFor(config, name).slice(0, 6),
   }));
-  overlay.webContents.send('show-ring', { actions, activeApp, rolProfiles, animation: config.animation || {}, macros: config.macros || [] });
-  const cursor = screen.getCursorScreenPoint();
-  console.log('[toggleOverlay] cursor:', cursor.x, cursor.y);
-  overlay.setPosition(cursor.x - 350, cursor.y - 350);
+
+  overlay.webContents.send('show-ring', {
+    actions: schema.buildRingActions(config, activeApp),
+    activeApp,
+    rolProfiles,
+    animation: config.animation || {},
+    macros: config.macros || [],
+  });
+
+  positionOverlayAtCursor();
+  overlayShownAt = Date.now();
   overlay.show();
   overlay.focus();
-  console.log('[toggleOverlay] overlay shown');
+  try { globalShortcut.register('Escape', hideOverlay); } catch { /* ignorado */ }
+}
+
+function toggleOverlay() {
+  if (!overlay || overlay.isDestroyed()) return;
+  if (overlay.isVisible()) hideOverlay();
+  else showOverlay();
+}
+
+// ---------------------------------------------------------------------------
+// Hotkey
+// ---------------------------------------------------------------------------
+function unregisterHotkey() {
+  if (!activeHotkey) return;
+  try { globalShortcut.unregister(activeHotkey); } catch { /* ignorado */ }
+  activeHotkey = null;
+}
+
+// Un accelerator inválido hacía explotar el handler de IPC y dejaba la app sin
+// ningún hotkey hasta reiniciar. Ahora se captura y se cae al default.
+function registerHotkey(accelerator) {
+  unregisterHotkey();
+  const attempt = (accel) => {
+    if (typeof accel !== 'string' || !accel.trim()) return false;
+    try {
+      if (globalShortcut.register(accel, toggleOverlay)) { activeHotkey = accel; return true; }
+      console.error(`[hotkey] "${accel}" rechazado (¿lo tiene tomado otra app?)`);
+    } catch (e) {
+      console.error(`[hotkey] "${accel}" inválido: ${e.message}`);
+    }
+    return false;
+  };
+
+  if (attempt(accelerator)) return activeHotkey;
+  if (accelerator !== schema.DEFAULT_HOTKEY && attempt(schema.DEFAULT_HOTKEY)) {
+    console.error(`[hotkey] usando el default ${schema.DEFAULT_HOTKEY}`);
+    return activeHotkey;
+  }
+  console.error('[hotkey] no se pudo registrar ningún hotkey; usá el ícono del tray');
+  return null;
+}
+
+function updateTrayTooltip() {
+  if (tray && !tray.isDestroyed()) tray.setToolTip(`Actions Ring (${activeHotkey || 'sin hotkey'})`);
 }
 
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../../icon.png')).resize({ width: 16, height: 16 });
+  const icon = nativeImage
+    .createFromPath(path.join(__dirname, '../../icon.png'))
+    .resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip(`Actions Ring 4All (${config.hotkey})`);
   tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Abrir anillo', click: toggleOverlay },
     { label: 'Settings', click: openSettings },
-    { label: 'Auto-start', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
+    { label: 'Abrir carpeta de configuración', click: () => shell.openPath(CONFIG_DIR) },
+    {
+      label: 'Iniciar con Windows',
+      type: 'checkbox',
+      checked: app.getLoginItemSettings().openAtLogin,
+      click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }),
+    },
+    { type: 'separator' },
+    { label: 'Salir', click: () => app.quit() },
   ]));
+  tray.on('click', toggleOverlay);
+  updateTrayTooltip();
 }
 
-// --- App ready ---
-app.whenReady().then(() => {
-  loadConfig();
-  createOverlay();
-  createTray();
-  watchClipboard();
-
-  const registered = globalShortcut.register(config.hotkey, toggleOverlay);
-  if (!registered) console.error(`ERROR: No se pudo registrar hotkey: ${config.hotkey}`);
-  else console.log(`Hotkey registrado: ${config.hotkey}`);
-
-  globalShortcut.register('Escape', () => { if (overlay && overlay.isVisible()) overlay.hide(); });
-});
-
-// --- IPC ---
-ipcMain.on('execute-action', (_, action) => {
-  if (action.type === 'profile') {
-    const actions = config.actions[action.value] || config.actions._default;
-    overlay.webContents.send('show-ring', { actions, activeApp: action.value, isSubring: true });
-    return;
+// ---------------------------------------------------------------------------
+// Ejecución de acciones
+// ---------------------------------------------------------------------------
+function spawnDetached(cmdline) {
+  try {
+    const child = spawn('cmd.exe', ['/c', cmdline], { detached: true, stdio: 'ignore', windowsHide: true });
+    child.on('error', (e) => console.error('[exec] error:', e.message));
+    child.unref();
+  } catch (e) {
+    console.error('[exec] no se pudo lanzar:', e.message);
   }
-  overlay.hide();
+}
 
-  // If action comes from a Rol profile, focus that app first
-  if (action._fromProfile) {
-    const focused = focusAppWindow(action._fromProfile);
-    if (!focused) {
-      // App not open, try to launch it
-      exec(`start "" "${action._fromProfile}"`, { shell: 'cmd.exe' });
-    }
-    setTimeout(() => {
-      if (action.type === 'shortcut') sendKeys(action.value);
-      else executeAction(action);
-    }, 400);
-  } else {
-    restoreFocus();
-    if (action.type === 'shortcut') {
-      setTimeout(() => sendKeys(action.value), 200);
-    } else {
-      setTimeout(() => executeAction(action), 200);
-    }
+function openTarget(value) {
+  const plan = vars.planOpen(value, (p) => { try { return fs.existsSync(p); } catch { return false; } });
+  switch (plan.kind) {
+    case 'url': shell.openExternal(plan.url); break;
+    case 'path': shell.openPath(plan.path); break;
+    // `start` resuelve nombres cortos vía App Paths del registro (notepad, chrome, ...)
+    case 'start': spawnDetached(`start "" "${plan.target}"`); break;
+    default: console.error(`[open] valor vacío o con caracteres no permitidos: ${plan.target}`);
   }
-});
+}
 
-ipcMain.on('close-ring', () => overlay.hide());
-ipcMain.on('renderer-log', (_, msg) => console.log('[renderer]', msg));
+const WINDOW_SNAP_KEYS = { left: 'Win+ArrowLeft', right: 'Win+ArrowRight', maximize: 'Win+ArrowUp' };
 
-// --- Macro execution from ring ---
-ipcMain.on('execute-macro', (_, macro) => {
-  overlay.hide();
-  restoreFocus();
-  setTimeout(() => executeMacro(macro.steps), 200);
-});
-
-// --- Macro recording ---
-let recording = false;
-let recordBuffer = [];
-let recordLastTime = 0;
-
-ipcMain.handle('start-recording', () => {
-  recording = true;
-  recordBuffer = [];
-  recordLastTime = Date.now();
-  // Desregistrar hotkey para que no intercepte teclas durante grabación
-  globalShortcut.unregisterAll();
-  console.log('[macro] Recording started, hotkeys unregistered');
-  return true;
-});
-
-ipcMain.handle('stop-recording', () => {
-  recording = false;
-  console.log('[macro] Recording stopped, steps:', recordBuffer.length);
-  const result = [...recordBuffer];
-  recordBuffer = [];
-  // Re-registrar hotkeys
-  globalShortcut.register(config.hotkey, toggleOverlay);
-  globalShortcut.register('Escape', () => { if (overlay && overlay.isVisible()) overlay.hide(); });
-  console.log('[macro] Hotkeys re-registered');
-  return result;
-});
-
-ipcMain.handle('save-macro', (_, macro) => {
-  if (!config.macros) config.macros = [];
-  config.macros.push(macro);
-  saveConfig(config);
-  return config.macros;
-});
-
-ipcMain.handle('delete-macro', (_, index) => {
-  if (config.macros) config.macros.splice(index, 1);
-  saveConfig(config);
-  return config.macros;
-});
-
-ipcMain.handle('get-macros', () => config.macros || []);
-
-ipcMain.handle('get-config', () => config);
-ipcMain.handle('save-config', (_, newConfig) => {
-  globalShortcut.unregisterAll();
-  saveConfig(newConfig);
-  globalShortcut.register(config.hotkey, toggleOverlay);
-  globalShortcut.register('Escape', () => { if (overlay && overlay.isVisible()) overlay.hide(); });
-});
-ipcMain.handle('get-running-apps', () => getRunningApps());
-ipcMain.handle('get-clipboard-history', () => clipboardHistory);
-ipcMain.handle('get-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
-
-// --- Execute action ---
 function executeAction(action) {
-  const { exec } = require('child_process');
+  if (!action || typeof action !== 'object') return;
   switch (action.type) {
-    case 'shortcut': sendKeys(action.value); break;
-    case 'open': {
-      exec(`start "" "${action.value}"`, { shell: 'cmd.exe' });
+    case 'shortcut':
+      sendKeys(action.value);
       break;
-    }
+
+    case 'open':
+      openTarget(action.value);
+      break;
+
     case 'command': {
-      const cmd = expandVariables(action.value);
-      if (cmd.startsWith('window:')) {
-        const pos = cmd.split(':')[1];
-        const winKeys = { 'left': 'Win+ArrowLeft', 'right': 'Win+ArrowRight', 'maximize': 'Win+ArrowUp' };
-        if (winKeys[pos]) sendKeys(winKeys[pos]);
+      const plan = vars.planCommand(action.value, currentVars());
+      if (plan.kind === 'window') {
+        if (WINDOW_SNAP_KEYS[plan.position]) sendKeys(WINDOW_SNAP_KEYS[plan.position]);
+        else console.error(`[command] window:${plan.position} no reconocido`);
+      } else if (plan.kind === 'url') {
+        // Sin shell: así un portapapeles con `& comando` no puede inyectar nada,
+        // y el contenido se codifica para que una query con espacios funcione.
+        shell.openExternal(plan.url);
       } else {
-        exec(cmd, { shell: 'cmd.exe' });
+        spawnDetached(plan.command);
       }
       break;
     }
+
     case 'snippet': {
-      const text = expandVariables(action.value);
+      const text = vars.expandVariables(action.value, currentVars(), 'raw');
+      const previous = clipboard.readText();
       clipboard.writeText(text);
-      setTimeout(() => sendKeys('Control+V'), 100);
+      lastClipText = text; // no contaminar el historial con nuestra propia escritura
+      setTimeout(() => {
+        sendKeys('Control+V');
+        // Devolver el portapapeles como estaba: antes el snippet lo pisaba para siempre.
+        setTimeout(() => {
+          try { clipboard.writeText(previous); lastClipText = previous; } catch { /* ignorado */ }
+        }, 400);
+      }, 120);
       break;
     }
+
     case 'workflow': {
+      let steps;
       try {
-        const steps = JSON.parse(action.value);
-        let delay = 0;
-        steps.forEach(step => { setTimeout(() => executeAction(step), delay); delay += 300; });
-      } catch {}
+        steps = typeof action.value === 'string' ? JSON.parse(action.value) : action.value;
+      } catch (e) {
+        console.error('[workflow] JSON inválido:', e.message);
+        break;
+      }
+      if (!Array.isArray(steps)) { console.error('[workflow] se esperaba un array de acciones'); break; }
+      steps.forEach((step, i) => setTimeout(() => executeAction(step), i * 300));
       break;
     }
+
     case 'macro': {
+      let steps;
       try {
-        const steps = typeof action.value === 'string' ? JSON.parse(action.value) : action.value;
-        executeMacro(steps);
-      } catch (e) { console.error('macro error:', e.message); }
+        steps = typeof action.value === 'string' ? JSON.parse(action.value) : action.value;
+      } catch (e) {
+        console.error('[macro] JSON inválido:', e.message);
+        break;
+      }
+      executeMacro(steps);
       break;
     }
+
+    default:
+      console.error(`[action] tipo desconocido: ${action.type}`);
   }
 }
 
-app.on('will-quit', () => globalShortcut.unregisterAll());
-app.on('activate', () => openSettings());
+// ---------------------------------------------------------------------------
+// IPC
+// ---------------------------------------------------------------------------
+function registerIpc() {
+  ipcMain.on('execute-action', (_event, action) => {
+    if (!action || typeof action !== 'object') return;
+
+    // Sub-anillo: navegar a otro perfil sin cerrar
+    if (action.type === 'profile') {
+      if (!overlay || overlay.isDestroyed()) return;
+      overlay.webContents.send('show-ring', {
+        actions: schema.profileActionsFor(config, action.value),
+        activeApp: action.value,
+        rolProfiles: [],
+        animation: config.animation || {},
+        macros: [],
+        isSubring: true,
+      });
+      return;
+    }
+
+    hideOverlay();
+
+    if (action._fromProfile) {
+      // Acción de un perfil Rol: primero traer esa app al frente
+      if (!focusAppWindow(action._fromProfile)) openTarget(action._fromProfile);
+      setTimeout(() => executeAction(action), 400);
+    } else {
+      restoreFocus();
+      setTimeout(() => executeAction(action), 200);
+    }
+  });
+
+  ipcMain.on('execute-macro', (_event, macro) => {
+    hideOverlay();
+    restoreFocus();
+    const steps = macro && Array.isArray(macro.steps) ? macro.steps : [];
+    setTimeout(() => executeMacro(steps), 200);
+  });
+
+  ipcMain.on('close-ring', () => hideOverlay());
+  ipcMain.on('renderer-log', (_event, msg) => console.log('[renderer]', msg));
+
+  ipcMain.on('ring-ready', () => {
+    overlayReady = true;
+    if (pendingShow) { pendingShow = false; showOverlay(); }
+  });
+
+  ipcMain.handle('get-config', () => config);
+
+  ipcMain.handle('save-config', (_event, newConfig) => {
+    const previousHotkey = config && config.hotkey;
+    saveConfig(newConfig);
+    if (config.hotkey !== previousHotkey && !recordingActive) {
+      registerHotkey(config.hotkey);
+      updateTrayTooltip();
+    }
+    return { config, hotkey: activeHotkey };
+  });
+
+  ipcMain.handle('get-running-apps', () => getRunningApps());
+  ipcMain.handle('get-clipboard-history', () => clipboardHistory);
+  ipcMain.handle('clear-clipboard-history', () => { clipboardHistory = []; return clipboardHistory; });
+  ipcMain.handle('get-config-path', () => CONFIG_FILE);
+  ipcMain.handle('open-config-folder', () => shell.openPath(CONFIG_DIR));
+  ipcMain.handle('validate-keys', (_event, combo) => keys.unmappedKeys(combo));
+
+  // Durante la grabación hay que liberar el hotkey para no interceptar teclas.
+  // La captura en sí ocurre en la ventana de Settings.
+  ipcMain.handle('start-recording', () => {
+    recordingActive = true;
+    unregisterHotkey();
+    updateTrayTooltip();
+    return true;
+  });
+
+  ipcMain.handle('stop-recording', () => {
+    recordingActive = false;
+    registerHotkey(config.hotkey);
+    updateTrayTooltip();
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Arranque
+// ---------------------------------------------------------------------------
+function main() {
+  app.on('second-instance', () => openSettings());
+
+  // Es una app de bandeja: cerrar Settings no debe terminar el proceso.
+  app.on('window-all-closed', () => { /* se sale desde el menú del tray */ });
+
+  app.whenReady().then(() => {
+    loadConfig();
+    createOverlay();
+    createTray();
+    registerIpc();
+    watchClipboard();
+    registerHotkey(config.hotkey);
+    updateTrayTooltip();
+    console.log(`[config] ${CONFIG_FILE}`);
+    console.log(`[hotkey] ${activeHotkey || 'ninguno'}`);
+  });
+
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    if (clipboardTimer) clearInterval(clipboardTimer);
+  });
+}
+
+// Una sola instancia: dos procesos competían por el hotkey y por el config.
+if (!app.requestSingleInstanceLock()) app.quit();
+else main();

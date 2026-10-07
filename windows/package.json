@@ -1,25 +1,50 @@
 {
   "name": "actions-ring-windows",
-  "version": "0.4.0",
-  "description": "Actions Ring - Portable radial menu for Windows",
+  "version": "0.5.0",
+  "description": "Actions Ring - Radial action menu for Windows",
   "main": "src/main/main.js",
+  "author": "Nicolás Nieto",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicolasnietoarg/ActionsRing_4all.git"
+  },
   "scripts": {
     "start": "electron .",
     "build:renderer": "esbuild src/renderer/index.jsx --bundle --outfile=dist/renderer.js --loader:.jsx=jsx --define:process.env.NODE_ENV=\\\"production\\\"",
     "build:settings": "esbuild src/settings/index.jsx --bundle --outfile=dist/settings.js --loader:.jsx=jsx --define:process.env.NODE_ENV=\\\"production\\\"",
     "build": "npm run build:renderer && npm run build:settings",
+    "check:main": "node --check src/main/main.js && node --check src/main/preload-ring.js && node --check src/main/preload-settings.js",
+    "test": "node test/run-tests.js && node test/run-main-harness.js",
+    "verify": "npm run check:main && npm test && npm run build",
     "dev": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win portable",
-    "dist:nsis": "npm run build && electron-builder --win nsis"
+    "dist": "npm run verify && electron-builder --win",
+    "dist:nsis": "npm run verify && electron-builder --win nsis",
+    "dist:portable": "npm run verify && electron-builder --win portable"
   },
   "build": {
     "appId": "com.actionsring.windows",
     "productName": "Actions Ring",
+    "artifactName": "ActionsRing-${version}-${arch}.${ext}",
     "win": {
       "icon": "icon.png",
+      "requestedExecutionLevel": "asInvoker",
       "target": [
+        { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
       ]
+    },
+    "nsis": {
+      "artifactName": "ActionsRing-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Actions Ring",
+      "uninstallDisplayName": "Actions Ring ${version}",
+      "deleteAppDataOnUninstall": false
     },
     "portable": {
       "artifactName": "ActionsRing-Portable-${version}.exe"
@@ -29,6 +54,7 @@
       "dist/**/*",
       "config/**/*",
       "tray-icon.png",
+      "icon.png",
       "node_modules/koffi/**/*"
     ],
     "extraResources": [

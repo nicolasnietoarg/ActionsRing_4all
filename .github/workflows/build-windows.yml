@@ -1,9 +1,16 @@
-name: Build Windows Portable
+name: Build Windows
 
 on:
   push:
     tags:
       - 'v*'
+  # Permite correr el build a mano desde la pestaña Actions, sin crear un tag
+  workflow_dispatch:
+  # En los PR solo se verifica: no se publica nada
+  pull_request:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/build-windows.yml'
 
 permissions:
   contents: write
@@ -17,26 +24,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: windows/package-lock.json
 
       - name: Install dependencies
         working-directory: windows
         run: npm ci
 
-      - name: Build portable exe
+      - name: Tests y chequeo de sintaxis
+        working-directory: windows
+        run: |
+          npm run check:main
+          npm test
+
+      - name: Build instalador (NSIS) y portable
         working-directory: windows
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run dist
 
-      - name: Upload release asset
+      - name: Subir artefactos del build
+        uses: actions/upload-artifact@v4
+        with:
+          name: actions-ring-windows
+          path: |
+            windows/dist/ActionsRing-Setup-*.exe
+            windows/dist/ActionsRing-Portable-*.exe
+          if-no-files-found: error
+
+      - name: Publicar en Releases
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: windows/dist/ActionsRing-Portable-*.exe
+          files: |
+            windows/dist/ActionsRing-Setup-*.exe
+            windows/dist/ActionsRing-Portable-*.exe
           body: |
-            ## Actions Ring ${{ github.ref_name }} - Windows Portable
+            ## Actions Ring ${{ github.ref_name }} — Windows
 
-            Download `ActionsRing-Portable-*.exe` and double-click to run. No installation required.
+            | Descarga | Para qué |
+            |----------|----------|
+            | `ActionsRing-Setup-*.exe` | Instalador. Crea accesos directos y permite elegir carpeta. Instala solo para tu usuario (no pide admin). |
+            | `ActionsRing-Portable-*.exe` | Portable. Se ejecuta sin instalar, sirve desde un USB. |
 
-            **Hotkey:** Ctrl+Alt+Space
+            **Hotkey por defecto:** `Ctrl+Alt+Space` (configurable en Settings)
 
-            See [CHANGES.md](windows/CHANGES.md) for full changelog.
+            La configuración se guarda en `%APPDATA%\Actions Ring\config.json`.
+            Al actualizar, la config existente se mantiene; al desinstalar, tampoco se borra.
+
+            Changelog completo en [windows/CHANGES.md](windows/CHANGES.md).

@@ -215,6 +215,40 @@
     .key-recorder { display: inline-flex; align-items: center; gap: 6px; }
     .section-label-icon { display: inline-flex; align-items: center; gap: 6px; }
     .pin-check, .drag-handle, .recording-dot, .macro-remove, .rol-tag-remove { display: inline-flex; align-items: center; justify-content: center; }
+    /* --- Hotkey --- */
+    .hotkey-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .hotkey-row .key-recorder { flex: 0 0 auto; min-width: 190px; }
+    .hotkey-manual { flex: 1 1 180px; min-width: 150px; font-family: Consolas, monospace; font-size: 11px; }
+
+    /* --- Avisos --- */
+    .warn-text {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 6px; padding: 5px 9px;
+      font-size: 11px; line-height: 1.4;
+      color: #ffd27d;
+      background: rgba(255, 180, 60, 0.1);
+      border: 1px solid rgba(255, 180, 60, 0.25);
+      border-radius: 6px;
+    }
+
+    /* --- Monitor de teclas en vivo (grabación de macros) --- */
+    .live-keys {
+      max-height: 150px; overflow-y: auto;
+      margin-top: 8px; padding: 6px 10px;
+      background: rgba(0,0,0,0.3); border-radius: 6px;
+      font-family: Consolas, 'SF Mono', monospace;
+      font-size: 11px; line-height: 18px;
+    }
+    .live-down { color: #66eeff; }
+    .live-up { color: #ff9966; }
+    .live-event { opacity: 0.5; margin-right: 6px; }
+
+    /* --- Detalle de pasos de una macro guardada --- */
+    .macro-steps-detail {
+      display: flex; width: 100%; flex-wrap: wrap; gap: 4px;
+      margin-top: 6px; padding-top: 6px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
   </style>
 </head>
 <body>

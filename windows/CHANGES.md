@@ -1,5 +1,72 @@
 # Windows Port - Changelog
 
+## v0.5.0 — 2026-10-07
+
+Corrección de bugs, limpieza de código e instalador. Sin pérdida de funcionalidad: todos los tipos de acción, perfiles, Rol, macros, pinned y animaciones siguen funcionando igual.
+
+### Seguridad
+
+| Tema | Antes | Ahora |
+|------|-------|-------|
+| **Credencial en el config publicado** | La macro `LAN` del `config/default.json` tipeaba una contraseña, partida en dos pasos `type:` (por eso se salvó de la limpieza de v0.4.1) | Se eliminó del config publicado. La configuración de cada usuario vive en `%APPDATA%` y nunca se commitea |
+| **Inyección de comandos** | `{clipboard}` se interpolaba crudo en `exec(..., {shell:'cmd.exe'})`. Un portapapeles con `x & calc` ejecutaba comandos | Lo interpolado se sanea según el destino: se codifica para URL o se neutralizan los metacaracteres de `cmd.exe`. Las URLs se abren con `shell.openExternal`, sin shell |
+| **`Escape` secuestrado a nivel SO** | Se registraba como atajo global permanente, así que Escape dejaba de funcionar en el resto de las aplicaciones mientras la app corría | Se registra solo mientras el anillo está abierto, y la ventana lo maneja localmente |
+| **Privilegio del preload** | Un solo preload exponía la API de configuración también a la ventana del anillo | Preload separado por ventana (`preload-ring.js` / `preload-settings.js`) |
+| **Historial de portapapeles** | No había forma de vaciarlo | Botón para vaciarlo en Settings → Clipboard |
+
+### Bugs corregidos
+
+| # | Problema | Causa |
+|---|----------|-------|
+| 1 | Un hotkey inválido dejaba la app **sin ningún hotkey hasta reiniciar** | `save-config` hacía `unregisterAll()` y después `register()` sin `try/catch`: el accelerator inválido tiraba excepción dentro del handler de IPC. Ahora se captura y se cae al default |
+| 2 | Escribir en Settings reescribía el JSON completo y volvía a registrar el hotkey global **en cada tecla** | Faltaba debounce. Ahora el estado local se actualiza al instante y el disco se escribe agrupado (400 ms) |
+| 3 | Un `config.json` corrupto dejaba la app **sin arrancar y sin forma de recuperarse** | `loadConfig` sin `try/catch` y antes de crear el tray. Ahora se respalda como `.bad-<timestamp>` y se arranca con los defaults |
+| 4 | La versión portable **crasheaba en ubicaciones de solo lectura** (USB protegido, Program Files) | Escribía el config junto al `.exe`. Ahora va a `%APPDATA%\Actions Ring\config.json`, con migración automática |
+| 5 | Dos instancias competían por el hotkey y por el archivo de config | No había `requestSingleInstanceLock()`. El segundo arranque ahora abre Settings |
+| 6 | **AltGr no hacía nada** en una macro | `altgraph` no estaba en `VK_MAP`, así que el paso se ejecutaba como no-op en silencio. Se mapeó a `VK_RMENU` y se sumaron teclas multimedia y modificadores derechos |
+| 7 | El grabador podía producir pasos que el reproductor no sabía ejecutar | Sin validación. Ahora Settings avisa qué paso tiene teclas no reproducibles |
+| 8 | Las pausas de las macros grabadas quedaban **corridas un paso** | El grabador guardaba la pausa *previa* al paso y el reproductor la aplicaba *después*. Se unificó en "espera después del paso" |
+| 9 | Un `delay: 0` explícito se convertía en 50 ms | `step.delay || 50`. Ahora el 0 se respeta |
+| 10 | Una tecla sin mapeo presionaba los modificadores y perdía la tecla principal | `VK_MAP[k] \|\| 0` sin validar. Ahora el combo no se envía y se loguea |
+| 11 | Un perfil sin acciones dejaba una **ventana invisible de 700×700 comiéndose los clicks** | El renderer devolvía `null` pero la ventana quedaba visible. Ahora muestra un aviso |
+| 12 | Un click fuera de las burbujas no hacía nada; pasar a otra ventana dejaba el anillo colgado arriba de todo | Faltaban la capa de cierre y el handler de `blur` |
+| 13 | El anillo quedaba **cortado** en los bordes de pantalla o en un monitor secundario | `setPosition` sin acotar. Ahora se limita al área de trabajo de la pantalla bajo el cursor |
+| 14 | Abrir el anillo antes de que cargara el renderer mostraba una ventana en blanco | El mensaje IPC se perdía. Ahora se difiere hasta que el renderer avisa que está listo |
+| 15 | Renombrar una acción dejaba su copia fijada **desactualizada** | `pinnedActions` guardaba copias completas. Ahora guarda ids; las configs viejas se migran y lo que no se pueda resolver se conserva inline |
+| 16 | `Chrome` vs `chrome` caía al perfil default en silencio | El match era exacto. Ahora es case-insensitive |
+| 17 | Un `snippet` **pisaba el portapapeles para siempre** | No se restauraba. Ahora se devuelve el contenido anterior y no se contamina el historial |
+| 18 | Cerrar Settings durante una grabación dejaba el hotkey **desregistrado para siempre** | `start-recording` liberaba el hotkey y nadie lo volvía a registrar. Se maneja en el evento `closed` y en el `beforeunload` |
+| 19 | Un emoji se escribía a medias | `typeText` iteraba caracteres y mandaba solo la mitad alta del par surrogate. Ahora recorre unidades de código UTF-16 |
+| 20 | Un `\n` en un `type:` se mandaba como unicode 10 y muchas apps lo ignoraban | Ahora `\n` y `\t` se envían como teclas Enter y Tab reales |
+| 21 | `dwExtraInfo` del struct `INPUT` se escribía en el offset 20 | Va en el 24 (x64). Era inocuo porque el buffer venía en cero, pero quedaba mal documentado |
+| 22 | La animación de salida cortaba las últimas burbujas | La duración se calculaba solo con `actions.length`, ignorando las burbujas Rol y Macro |
+| 23 | Una búsqueda con espacios rompía la query de la acción Google | `{clipboard}` no se codificaba para URL |
+
+### Limpieza
+
+- Eliminado código muerto: `makeKeyInput()`, el estado de grabación del main (`recordBuffer`, `recordLastTime`, `recording`) que nunca se llenaba y hacía que `stop-recording` devolviera siempre `[]`, los handlers IPC `save-macro` / `delete-macro` / `get-macros` que la UI no usaba, `get-theme` sin consumidores y un `require('child_process')` duplicado.
+- La sección de Macros se renderizaba **dos veces** (en cada perfil y en Herramientas). Ahora solo en Herramientas → Macros.
+- `main.js` se dividió: la lógica pura salió a `keys.js`, `config-schema.js` y `variables.js`, que no dependen de Electron ni de koffi.
+- Estilos inline del renderer movidos a CSS.
+
+### Nuevo
+
+- **Instalador NSIS** (`ActionsRing-Setup-*.exe`): elección de carpeta, accesos directos, instalación por usuario sin pedir admin, y no borra la configuración al desinstalar. El portable se sigue publicando.
+- **Suite de tests** (`npm test`): 40 casos sobre teclas, normalización de config, acciones fijadas, variables y timing de macros. Sin dependencias, corre con node puro.
+- `npm run verify`: sintaxis + tests + compilación. Lo corre también `run.bat` antes de levantar la app.
+- CI: corre los tests, publica instalador y portable, y permite ejecución manual desde la pestaña Actions.
+- Tray: "Abrir anillo", "Abrir carpeta de configuración" y click simple para abrir el anillo.
+- Hotkey configurable con grabador de teclas (antes era un campo de texto libre) y aviso si la combinación no es válida.
+- Teclas nuevas soportadas: `AltGr`, modificadores derechos (`RControl`, `RShift`, `RAlt`), `CapsLock`, `NumLock`, `Pause`, y multimedia (`MediaPlayPause`, `MediaNextTrack`, `VolumeUp`, `VolumeDown`, `VolumeMute`).
+
+### Cambios de comportamiento a tener en cuenta
+
+- La configuración se movió a `%APPDATA%\Actions Ring\config.json`. La primera ejecución migra la que tenías junto al `.exe`.
+- El hotkey de los defaults publicados es `Control+Alt+Space` (coincide con la documentación). Si ya tenías uno configurado, se respeta.
+- El tipo de acción `profile` vuelve a mostrarse en el anillo: el renderer lo filtraba y nunca aparecía, aunque estaba documentado.
+
+---
+
 ## v0.4.1 — 2026-07-17
 
 ### Security: Credential cleanup
