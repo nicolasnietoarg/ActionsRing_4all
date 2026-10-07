@@ -41,6 +41,7 @@ jobs:
         working-directory: windows
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run dist
 
       - name: Subir artefactos del build
